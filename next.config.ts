@@ -2,20 +2,24 @@ import {withSentryConfig} from '@sentry/nextjs';
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // TODO: set to false and fix remaining TS issues so production builds are type-safe.
   typescript: {
     ignoreBuildErrors: true
   },
+  // TODO: set to false once `next lint` is clean at error level in CI.
   eslint: {
     ignoreDuringBuilds: true
   },
   output: 'standalone',
   images: {
     dangerouslyAllowSVG: true,
+    // Avoid `hostname: '*'`, which allows any origin to trigger image optimization SSR/load.
     remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: '*',
-      },
+      { protocol: 'https', hostname: 'cdn.sanity.io', pathname: '/**' },
+      { protocol: 'https', hostname: '**.public.blob.vercel-storage.com', pathname: '/**' },
+      { protocol: 'https', hostname: 'avatars.githubusercontent.com', pathname: '/**' },
+      { protocol: 'https', hostname: 'lh3.googleusercontent.com', pathname: '/**' },
+      { protocol: 'https', hostname: 'picsum.photos', pathname: '/**' },
     ],
   },
   experimental: {

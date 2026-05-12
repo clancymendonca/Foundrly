@@ -6,11 +6,11 @@ import AllBadges from "@/components/AllBadges";
 import Link from "next/link";
 
 interface PageProps {
-  searchParams: { user?: string };
+  searchParams: Promise<{ user?: string }>;
 }
 
 export default async function BadgesPage({ searchParams }: PageProps) {
-  const userId = searchParams.user;
+  const { user: userId } = await searchParams;
   const session = await auth();
   
   // If no user parameter, show all badges

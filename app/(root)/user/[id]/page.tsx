@@ -15,8 +15,8 @@ import UserSidebarWrapper from "@/components/UserSidebarWrapper";
 
 export const experimental_ppr = true;
 
-const Page = async ({ params }: { params: { id: string } }) => {
-  const id = params.id;
+const Page = async ({ params }: { params: Promise<{ id: string }> }) => {
+  const { id } = await params;
   const session = await auth();
   const user = await client.fetch(AUTHOR_BY_ID_QUERY, { id });
   if (!user) return notFound();

@@ -47,3 +47,13 @@ Recommended local services:
 Notes:
 - In development, file uploads are stored under `public/uploads/`.
 - In production (e.g., Vercel), uploads use Vercel Blob when `BLOB_READ_WRITE_TOKEN` is set.
+
+## Checks before opening a PR
+
+Run the same sequence as GitHub Actions (lint, scoped typecheck, unit tests, production build). With a populated `.env.local`, from the repo root:
+
+```bash
+npm run verify:ci
+```
+
+`verify:ci` runs `npx next build` (not `npm run build`), so Sanity **typegen** is not executed in that script path; use `npm run dev` or `npm run build` locally when you change Sanity schemas. CI placeholders for a green fork build are documented in [DEVELOPER_GUIDE.md](./DEVELOPER_GUIDE.md).

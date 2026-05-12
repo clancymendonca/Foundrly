@@ -4,14 +4,15 @@
 
 ## 📚 **Documentation**
 
-Key guides in this repository:
-
+- **[Documentation index](./docs/README.md)** (all guides in one place)
 - **[Getting Started](./GETTING_STARTED.md)**
+- **[Developer Guide](./DEVELOPER_GUIDE.md)** (CI, pinned stack, tests)
 - **[Architecture Overview](./ARCHITECTURE_OVERVIEW.md)**
 - **[API Reference](./API_REFERENCE.md)**
 - **[Deployment Guide](./DEPLOYMENT_GUIDE.md)**
 - **[Troubleshooting Guide](./TROUBLESHOOTING_GUIDE.md)**
-- More topics: badges, notifications, analytics, Docker, Vercel, and AI integration are covered in the root-level guides (e.g., `BADGE_SYSTEM_GUIDE.md`, `ENHANCED_BADGE_SYSTEM_GUIDE.md`, `NOTIFICATION_SYSTEM_GUIDE.md`, `PUSH_NOTIFICATIONS_GUIDE.md`, `STARTUP_ANALYTICS_GUIDE.md`, `DOCKER_*_GUIDE.md`, `GROK_API_SETUP.md`, `GROQ_API_SETUP.md`).
+
+Additional topics (badges, notifications, analytics, Docker, Vercel, AI, APIs) are linked from the index above.
 
 ## 🚀 **Quick Start**
 

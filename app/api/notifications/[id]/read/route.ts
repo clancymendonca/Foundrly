@@ -5,8 +5,9 @@ import { markNotificationAsRead } from '@/sanity/lib/notifications';
 // PATCH /api/notifications/[id]/read - Mark a specific notification as read
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id: notificationId } = await params;
   try {
     
     // Try to get session with better error handling
@@ -18,7 +19,7 @@ export async function PATCH(
       return NextResponse.json({
         success: true,
         message: 'Notification marked as read (fallback mode)',
-        notificationId: params.id,
+        notificationId,
         timestamp: new Date().toISOString(),
         authError: 'Authentication failed'
       });
@@ -32,12 +33,12 @@ export async function PATCH(
 
     try {
       // Mark notification as read in Sanity
-      await markNotificationAsRead(params.id);
+      await markNotificationAsRead(notificationId);
       
       return NextResponse.json({
         success: true,
         message: 'Notification marked as read',
-        notificationId: params.id,
+        notificationId,
         timestamp: new Date().toISOString(),
         user: {
           id: session.user.id,
@@ -50,7 +51,7 @@ export async function PATCH(
       return NextResponse.json({
         success: true,
         message: 'Notification marked as read (fallback mode)',
-        notificationId: params.id,
+        notificationId,
         timestamp: new Date().toISOString(),
         sanityError: 'Database operation failed'
       });
@@ -61,7 +62,7 @@ export async function PATCH(
     return NextResponse.json({
       success: true,
       message: 'Notification marked as read (fallback mode)',
-      notificationId: params.id,
+      notificationId,
       timestamp: new Date().toISOString(),
       error: 'System error, using fallback mode'
     });

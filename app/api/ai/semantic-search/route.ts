@@ -38,10 +38,11 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
+    const errSearch = new URL(request.url).searchParams;
     console.error('❌ [SEMANTIC SEARCH API] Error in semantic search API:');
     console.error('  Error message:', error instanceof Error ? error.message : 'Unknown error');
-    console.error('  Query:', searchParams.get('q'));
-    console.error('  Limit:', parseInt(searchParams.get('limit') || '10'));
+    console.error('  Query:', errSearch.get('q'));
+    console.error('  Limit:', parseInt(errSearch.get('limit') || '10'));
     if (error instanceof Error && error.stack) {
       console.error('  Stack trace:', error.stack);
     }

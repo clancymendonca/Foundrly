@@ -3,10 +3,10 @@ import { checkUserBanStatus, getBanStatusMessage } from '@/lib/ban-checks'
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const userId = params.id
+    const { id: userId } = await params
     
     if (!userId) {
       return NextResponse.json(

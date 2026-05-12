@@ -68,12 +68,8 @@ const ActivityGridItem = ({ startup, activityType }: ActivityGridItemProps) => {
     return `/startup/${startup._id}`;
   };
 
-  const handleClick = () => {
-    console.log('Startup clicked:', startup.title, 'URL:', getStartupUrl(), 'ID:', startup._id);
-  };
-
   return (
-    <Link href={getStartupUrl()} className="block" onClick={handleClick}>
+    <Link href={getStartupUrl()} className="block">
       <div className="relative aspect-square group cursor-pointer transform transition-transform duration-200 hover:scale-105">
         <Image
           src={getImageUrl()}

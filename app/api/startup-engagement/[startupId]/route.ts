@@ -3,10 +3,10 @@ import { client } from '@/sanity/lib/client';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { startupId: string } }
+  { params }: { params: Promise<{ startupId: string }> }
 ) {
   try {
-    const { startupId } = params;
+    const { startupId } = await params;
 
     if (!startupId) {
       return NextResponse.json({ error: 'Startup ID is required' }, { status: 400 });

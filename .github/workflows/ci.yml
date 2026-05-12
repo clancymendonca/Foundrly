@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      CI: 'true'
+      # Placeholders so `next build` can collect route modules; replace with real
+      # project values in GitHub Actions secrets if you need a production-faithful build.
+      NEXT_PUBLIC_SANITY_PROJECT_ID: abc12345
+      NEXT_PUBLIC_SANITY_DATASET: production
+      SANITY_WRITE_TOKEN: skci_placeholder_token_for_build_only_not_for_production
+      AUTH_SECRET: ci_auth_secret_minimum_thirty_two_characters_long
+      NEXTAUTH_URL: http://localhost:3000
+      GEMINI_API_KEY: fakegeminikeyforcibuildonlyxxxxxxxx
+      PINECONE_API_KEY: pinecone-ci-placeholder-key
+      NEXT_PUBLIC_STREAM_API_KEY: fake-stream-public-key-for-ci
+      STREAM_API_KEY: fake-stream-api-key-for-ci
+      STREAM_API_SECRET: fake-stream-api-secret-for-ci
+      # Valid-format throwaway VAPID pair for web-push module init (CI only).
+      NEXT_PUBLIC_VAPID_PUBLIC_KEY: BD-bulxhnGrxJyWQqG98PU6ghP0s4xB4OMlW0de2dph3pygBWAXQ4QmmCkzaRB9DDDYzcghI37T-T98ua-qzSE0
+      VAPID_PRIVATE_KEY: SbB57czxVCausqtXbg58CcEcYAiiWYDsSfvS4tu3Tns
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: Typecheck (tests + Vitest config)
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm run test:run
+
+      - name: Production build
+        # Use `npx next build` so CI does not run `prebuild` / Sanity typegen (requires a real Sanity project).
+        run: npx next build

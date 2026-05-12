@@ -2,6 +2,8 @@ import { client } from '@/sanity/lib/client';
 import { InterestedSubmission } from '@/sanity/types';
 import InterestedSubmissionsManager from './InterestedSubmissionsManager';
 
+export const dynamic = 'force-dynamic';
+
 async function getInterestedSubmissions(): Promise<InterestedSubmission[]> {
   const submissions = await client.fetch(`
     *[_type == "interestedSubmission"] | order(submittedAt desc) {

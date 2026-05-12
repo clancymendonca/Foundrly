@@ -8,9 +8,14 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 export const experimental_ppr = false;
 
-export default function AnalyticsPage({ searchParams }: { searchParams?: Record<string, string | string[] | undefined> }) {
-  const section = typeof searchParams?.section === 'string' ? searchParams?.section : undefined;
-  const hasStartup = typeof searchParams?.startup === 'string' ? true : false;
+export default async function AnalyticsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const sp = searchParams ? await searchParams : undefined;
+  const section = typeof sp?.section === 'string' ? sp.section : undefined;
+  const hasStartup = typeof sp?.startup === 'string' ? true : false;
   return (
     <Suspense fallback={<div className="h-screen bg-white text-gray-900 flex items-center justify-center">Loading...</div>}>
       {/* Mobile Navigation Screen when no section/startup is selected */}
