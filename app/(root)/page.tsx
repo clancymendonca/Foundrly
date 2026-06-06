@@ -94,9 +94,9 @@ export default async function Home({searchParams}:{
       </section>
 
       {/* AI Recommendations above filters */}
-      {!query && (
+      {!query && session?.user && (
         <section className="section_container">
-          <AIRecommendations limit={6} />
+          <AIRecommendations limit={6} enabled />
         </section>
       )}
 
@@ -143,7 +143,8 @@ export default async function Home({searchParams}:{
         </ul>
       </section>
 
-      <SanityLive />
+      {(process.env.NODE_ENV === 'production' ||
+        process.env.NEXT_PUBLIC_SANITY_LIVE === 'true') && <SanityLive />}
     </>
   );
 }

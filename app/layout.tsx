@@ -55,6 +55,7 @@ const workSans = localFont({
 })
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXTAUTH_URL ?? 'http://localhost:3000'),
   title: "Foundrly",
   description:
     "Foundrly is a platform to discover startups, connect with founders, track funding updates, and explore job opportunities. Empowering entrepreneurs, investors, and enthusiasts with insights and tools to thrive in the startup ecosystem.",

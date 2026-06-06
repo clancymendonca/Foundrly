@@ -16,16 +16,22 @@ import { STARTUP_BY_ID_QUERY } from '@/sanity/lib/queries';
 
 interface AIRecommendationsProps {
   limit?: number;
+  enabled?: boolean;
   onStartupSelect?: (startup: any) => void;
   className?: string;
 }
 
 export default function AIRecommendations({ 
-  limit = 6, 
+  limit = 6,
+  enabled = true,
   onStartupSelect, 
   className 
 }: AIRecommendationsProps) {
-  const { recommendations, isLoading, error, refetch } = useAIRecommendations(limit);
+  const { recommendations, isLoading, error, refetch } = useAIRecommendations(limit, { enabled });
+
+  if (!enabled) {
+    return null;
+  }
   const [mobileCurrentIndex, setMobileCurrentIndex] = useState(0);
   const [desktopCurrentIndex, setDesktopCurrentIndex] = useState(0);
 

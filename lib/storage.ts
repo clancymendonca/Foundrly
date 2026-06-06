@@ -18,10 +18,10 @@ export const uploadToStorage = async (file: File): Promise<StorageResult> => {
     const extension = file.name.split(".").pop();
     const filename = `${timestamp}-${randomString}.${extension}`;
 
-    // Check if we're in production (Vercel) or development
     const isProduction = process.env.NODE_ENV === "production" || process.env.VERCEL === "1";
+    const useVercelBlob = isProduction || Boolean(process.env.BLOB_READ_WRITE_TOKEN);
 
-    if (isProduction) {
+    if (useVercelBlob) {
       // Use Vercel Blob in production
       const blob = await put(filename, file, {
         access: 'public',

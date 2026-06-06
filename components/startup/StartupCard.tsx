@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import DeleteStartupButton from "./DeleteStartupButton";
 import InterestedModal from "@/components/interested/InterestedModal";
 import React from "react";
+import { STARTUP_IMAGE_PLACEHOLDER } from "@/lib/image-fallback";
 // import CountUp from 'react-countup';
 
 export type StartupTypeCard = Omit<Startup, "author"> & { author?: Author };
@@ -67,6 +68,15 @@ const StartupCard = ({ post, isOwner = false, isLoggedIn = false, userId, showDe
   const [interestedLoading, setInterestedLoading] = React.useState(false);
   const [isInterestedModalOpen, setIsInterestedModalOpen] = React.useState(false);
   const hasIncremented = React.useRef(false);
+  const [imageSrc, setImageSrc] = React.useState(image ?? '');
+
+  React.useEffect(() => {
+    setImageSrc(image ?? '');
+  }, [image]);
+
+  const handleImageError = () => {
+    setImageSrc(STARTUP_IMAGE_PLACEHOLDER);
+  };
   
   // Client-side popup notifications removed; rely on server to notify recipients
 
@@ -277,11 +287,11 @@ const StartupCard = ({ post, isOwner = false, isLoggedIn = false, userId, showDe
 
   return (
   <li className="startup-card group hover:bg-blue-50 transition-colors duration-200 relative overflow-hidden" style={{ listStyle: 'none', marginBottom: '0.5rem' }}>
-      {(analyticsContent || hideImage) && image && (
+      {(analyticsContent || hideImage) && imageSrc && (
         <>
           <div
             className="absolute inset-0 -z-10 bg-center bg-cover blur-lg opacity-30"
-            style={{ backgroundImage: `url(${image})` }}
+            style={{ backgroundImage: `url(${imageSrc})` }}
             aria-hidden
           />
           <div className="absolute inset-0 -z-10 bg-white/40" aria-hidden />
@@ -343,8 +353,8 @@ const StartupCard = ({ post, isOwner = false, isLoggedIn = false, userId, showDe
             <p className="startup-card_desc relative z-10">{description}</p>
           )}
 
-          {!hideImage && (
-            <img src={image} alt="placeholder" className="startup-card_img relative z-10" />
+          {!hideImage && imageSrc && (
+            <img src={imageSrc} alt="placeholder" className="startup-card_img relative z-10" onError={handleImageError} />
           )}
         </button>
       ) : (
@@ -353,8 +363,8 @@ const StartupCard = ({ post, isOwner = false, isLoggedIn = false, userId, showDe
             <p className="startup-card_desc relative z-10">{description}</p>
           )}
 
-          {!hideImage && (
-            <img src={image} alt="placeholder" className="startup-card_img relative z-10" />
+          {!hideImage && imageSrc && (
+            <img src={imageSrc} alt="placeholder" className="startup-card_img relative z-10" onError={handleImageError} />
           )}
         </Link>
       )}

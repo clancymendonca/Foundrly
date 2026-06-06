@@ -16,18 +16,31 @@ interface UseAIRecommendationsReturn {
   refetch: () => void;
 }
 
-export function useAIRecommendations(limit: number = 10): UseAIRecommendationsReturn {
+export function useAIRecommendations(
+  limit: number = 10,
+  options?: { enabled?: boolean }
+): UseAIRecommendationsReturn {
+  const enabled = options?.enabled ?? true;
   const [recommendations, setRecommendations] = useState<RecommendationResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchRecommendations = async () => {
+    if (!enabled) {
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
     try {
       const response = await fetch(`/api/ai/recommendations?limit=${limit}`);
       const data = await response.json();
+
+      if (response.status === 401) {
+        setRecommendations(null);
+        return;
+      }
 
       if (!response.ok) {
         throw new Error(data.message || 'Failed to fetch recommendations');
@@ -48,8 +61,15 @@ export function useAIRecommendations(limit: number = 10): UseAIRecommendationsRe
   };
 
   useEffect(() => {
+    if (!enabled) {
+      setRecommendations(null);
+      setError(null);
+      setIsLoading(false);
+      return;
+    }
+
     fetchRecommendations();
-  }, [limit]);
+  }, [limit, enabled]);
 
   return {
     recommendations,
