@@ -142,6 +142,10 @@ class RealtimeNotificationService {
     return this.notificationQueue.get(userId)?.length || 0;
   }
 
+  getQueuedNotifications(userId: string): RealtimeNotification[] {
+    return [...(this.notificationQueue.get(userId) ?? [])];
+  }
+
   // Clear queued notifications for a user
   clearQueuedNotifications(userId: string): void {
     this.notificationQueue.delete(userId);

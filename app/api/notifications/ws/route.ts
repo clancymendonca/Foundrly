@@ -16,7 +16,8 @@ export async function GET(req: NextRequest) {
     message: 'Real-time notification service available',
     userId: session.user.id,
     connectionCount: realtimeNotificationService.getConnectionCount(session.user.id),
-    queuedCount: realtimeNotificationService.getQueuedCount(session.user.id)
+    queuedCount: realtimeNotificationService.getQueuedCount(session.user.id),
+    notifications: realtimeNotificationService.getQueuedNotifications(session.user.id),
   }), {
     headers: {
       'Content-Type': 'application/json',
