@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { UnifiedPushNotificationService } from '@/lib/unifiedPushNotifications';
+import { UnifiedPushNotificationService } from '@/lib/notifications/unifiedPushNotifications';
 
 interface TestNotification {
   type: string;
@@ -167,7 +167,7 @@ export default function NotificationTestPanel() {
     
     try {
       console.log('🔔 Testing server-side notification...');
-      const response = await fetch('/api/test-notification', {
+      const response = await fetch('/api/dev/test-notification', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

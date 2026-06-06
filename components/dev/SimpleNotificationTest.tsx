@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useClientNotifications } from '@/hooks/useClientNotifications';
+import { useClientNotifications } from '@/hooks/notifications/useClientNotifications';
 
 export default function SimpleNotificationTest() {
   const [isLoading, setIsLoading] = useState(false);

@@ -1,20 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isEmailConfigured, sendTestEmail } from '@/lib/email';
+import { devOnlyGuard } from '@/lib/dev-only';
 
 export async function POST(req: NextRequest) {
+  const blocked = devOnlyGuard();
+  if (blocked) return blocked;
+
   try {
-    const isDev = process.env.NODE_ENV !== 'production';
-    const adminSecret = process.env.ADMIN_SECRET;
-    const providedSecret = req.headers.get('x-admin-secret') || '';
-    const hostHeader = req.headers.get('host') || '';
-    const isLocalhost = hostHeader.includes('localhost') || hostHeader.startsWith('127.0.0.1');
-
-    if (!isDev && !isLocalhost) {
-      if (!adminSecret || providedSecret !== adminSecret) {
-        return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-      }
-    }
-
     if (!isEmailConfigured()) {
       return NextResponse.json({ success: false, error: 'Email not configured' }, { status: 500 });
     }

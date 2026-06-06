@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { UnifiedPushNotificationService } from '@/lib/unifiedPushNotifications';
+import { UnifiedPushNotificationService } from '@/lib/notifications/unifiedPushNotifications';
 
 export default function NotificationDiagnostics() {
   const [diagnostics, setDiagnostics] = useState<any>(null);

@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { aiService } from '@/lib/ai-services';
+import { devOnlyGuard } from '@/lib/dev-only';
 
 export async function GET(request: NextRequest) {
+  const blocked = devOnlyGuard();
+  if (blocked) return blocked;
+
   try {
     const { searchParams } = new URL(request.url);
     const query = searchParams.get('q') || 'test';

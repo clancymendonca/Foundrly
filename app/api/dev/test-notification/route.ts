@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server';
-import { ServerPushNotificationService } from '@/lib/serverPushNotifications';
+import { ServerPushNotificationService } from '@/lib/notifications/serverPushNotifications';
+import { devOnlyGuard } from '@/lib/dev-only';
 
 export async function POST(request: Request) {
+  const blocked = devOnlyGuard();
+  if (blocked) return blocked;
+
   try {
     const notification = await request.json();
     

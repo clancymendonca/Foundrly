@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { AIVectorSync } from '@/lib/ai-vector-sync';
+import { devOnlyGuard } from '@/lib/dev-only';
 
 export async function POST(request: NextRequest) {
+  const blocked = devOnlyGuard();
+  if (blocked) return blocked;
+
   console.log('🚀 [TEST SYNC API] Starting test vector sync (no auth required)');
   
   try {
@@ -62,6 +66,9 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
+  const blocked = devOnlyGuard();
+  if (blocked) return blocked;
+
   console.log('📊 [TEST SYNC API] Getting sync status');
   
   try {

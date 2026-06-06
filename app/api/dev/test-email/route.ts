@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { testEmailConfiguration } from '@/lib/emailNotifications';
+import { testEmailConfiguration } from '@/lib/notifications/emailNotifications';
+import { devOnlyGuard } from '@/lib/dev-only';
 
 export async function GET(req: NextRequest) {
+  const blocked = devOnlyGuard();
+  if (blocked) return blocked;
+
   try {
     const result = await testEmailConfiguration();
     

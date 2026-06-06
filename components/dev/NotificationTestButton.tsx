@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useClientNotifications } from '@/hooks/useClientNotifications';
+import { useClientNotifications } from '@/hooks/notifications/useClientNotifications';
 
 interface NotificationTestButtonProps {
   type: 'like' | 'dislike' | 'comment' | 'reply' | 'interested' | 'follow';

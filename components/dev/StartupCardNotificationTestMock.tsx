@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { useClientNotifications } from '@/hooks/useClientNotifications';
+import { useClientNotifications } from '@/hooks/notifications/useClientNotifications';
 
 export default function StartupCardNotificationTestMock() {
   const [debugInfo, setDebugInfo] = useState<string[]>([]);

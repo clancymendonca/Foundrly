@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { client } from '@/sanity/lib/client';
+import { devOnlyGuard } from '@/lib/dev-only';
 
 export async function GET(req: Request) {
+  const blocked = devOnlyGuard();
+  if (blocked) return blocked;
+
   const session = await auth();
   if (!session) {
     return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });

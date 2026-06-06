@@ -34,7 +34,7 @@ async function comprehensiveVectorSync() {
   try {
     // Check server status
     console.log('🔍 Checking server status...');
-    const statusCheck = await makeRequest('http://localhost:3000/api/ai/test-sync', {
+    const statusCheck = await makeRequest('http://localhost:3000/api/dev/ai/test-sync', {
       method: 'GET'
     });
 
@@ -73,7 +73,7 @@ async function comprehensiveVectorSync() {
 
       try {
         // Perform comprehensive bulk sync via API
-        const syncResult = await makeRequest('http://localhost:3000/api/ai/test-sync', {
+        const syncResult = await makeRequest('http://localhost:3000/api/dev/ai/test-sync', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

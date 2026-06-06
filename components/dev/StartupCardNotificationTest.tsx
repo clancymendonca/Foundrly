@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import StartupCard from './StartupCard';
+import StartupCard from '@/components/startup/StartupCard';
 import { Author, Startup } from '@/sanity/types';
 import { client } from '@/sanity/lib/client';
 import { useSession } from 'next-auth/react';
