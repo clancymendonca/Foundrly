@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { getModerationSettings, saveModerationSettings } from '@/sanity/lib/moderation-queries'
+import { getModerationSettings } from '@/sanity/lib/moderation-queries'
+import { saveModerationSettings } from '@/sanity/lib/moderation-mutations'
 import { auth } from '@/auth'
 
 export async function GET() {

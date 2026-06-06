@@ -17,7 +17,7 @@ vi.mock('@/sanity/lib/write-client', () => ({
   },
 }))
 
-vi.mock('@/sanity/lib/moderation-queries', () => ({
+vi.mock('@/sanity/lib/moderation-mutations', () => ({
   logModerationActivity: vi.fn(),
 }))
 

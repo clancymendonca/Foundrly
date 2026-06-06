@@ -5,7 +5,7 @@ import { writeClient } from '@/sanity/lib/write-client'
 import { moderateContent, verifyWebhookSignature } from '@/lib/stream-chat-moderation'
 import { createBanHistoryEntry, calculateStrikeBan, getCurrentStrikeCount } from '@/sanity/lib/strike-system'
 import { calculateBanEndDate } from '@/sanity/lib/moderation'
-import { logModerationActivity } from '@/sanity/lib/moderation-queries'
+import { logModerationActivity } from '@/sanity/lib/moderation-mutations'
 
 const apiKey = process.env.STREAM_API_KEY!
 const apiSecret = process.env.STREAM_API_SECRET!

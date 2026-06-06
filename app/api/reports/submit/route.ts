@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import { client } from '@/sanity/lib/client'
 import { writeClient } from '@/sanity/lib/write-client'
-import { logModerationActivity } from '@/sanity/lib/moderation-queries'
+import { logModerationActivity } from '@/sanity/lib/moderation-mutations'
 
 export async function POST(request: NextRequest) {
   try {

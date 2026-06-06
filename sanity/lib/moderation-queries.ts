@@ -1,4 +1,4 @@
-import { studioReadClient, studioClient } from './studio-client'
+import { studioReadClient } from './studio-client'
 
 export interface ModerationStats {
   totalMessages: number
@@ -240,66 +240,3 @@ export async function getModerationSettings(): Promise<ModerationSettings | null
     return null
   }
 }
-
-/**
- * Save moderation settings
- */
-export async function saveModerationSettings(settings: ModerationSettings): Promise<boolean> {
-  try {
-    // Check if settings document exists
-    const existingSettings = await studioReadClient.fetch(`
-      *[_type == "moderationSettings"][0] { _id }
-    `)
-    
-    const settingsData = {
-      _type: 'moderationSettings',
-      enabled: settings.enabled,
-      severity: settings.severity,
-      actions: settings.actions,
-      thresholds: settings.thresholds,
-      autoBan: settings.autoBan,
-      lastUpdated: new Date().toISOString()
-    }
-    
-    if (existingSettings) {
-      // Update existing settings
-      await studioClient
-        .patch(existingSettings._id)
-        .set(settingsData)
-        .commit()
-    } else {
-      // Create new settings document
-      await studioClient.create(settingsData)
-    }
-    
-    return true
-  } catch (error) {
-    console.error('Error saving moderation settings:', error)
-    return false
-  }
-}
-
-/**
- * Log moderation activity
- */
-export async function logModerationActivity(activity: Omit<ModerationActivity, 'id' | 'timestamp'>): Promise<boolean> {
-  try {
-    const activityData = {
-      _type: 'moderationActivity',
-      type: activity.type,
-      userId: activity.userId,
-      userName: activity.userName,
-      reason: activity.reason,
-      severity: activity.severity,
-      itemId: activity.itemId,
-      itemType: activity.itemType,
-      timestamp: new Date().toISOString()
-    }
-    
-    await studioClient.create(activityData)
-    return true
-  } catch (error) {
-    console.error('Error logging moderation activity:', error)
-    return false
-  }
-} 

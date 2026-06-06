@@ -8,7 +8,7 @@ import {
   createBanHistoryEntry, 
   getCurrentStrikeCount 
 } from '@/sanity/lib/strike-system'
-import { logModerationActivity } from '@/sanity/lib/moderation-queries'
+import { logModerationActivity } from '@/sanity/lib/moderation-mutations'
 
 export async function POST(request: NextRequest) {
   try {

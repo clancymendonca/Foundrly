@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react'
 import { Card, Stack, Text, Badge, Button, Box, Flex, Switch, Select, TextInput, Grid } from '@sanity/ui'
 import { Shield, AlertTriangle, Settings, Save } from 'lucide-react'
-import { getModerationSettings, saveModerationSettings, type ModerationSettings as ModerationSettingsType } from '../lib/moderation-queries'
+import { useClient } from 'sanity'
+import { apiVersion } from '../env'
+import { getModerationSettings, type ModerationSettings as ModerationSettingsType } from '../lib/moderation-queries'
+import { saveModerationSettingsWithClient } from '../lib/moderation-settings-shared'
 
 export interface ModerationConfig {
   enabled: boolean
@@ -50,6 +53,7 @@ const defaultSettings: ModerationConfig = {
 }
 
 export const ModerationSettings = () => {
+  const client = useClient({ apiVersion })
   const [settings, setSettings] = useState<ModerationConfig>(defaultSettings)
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
@@ -79,7 +83,10 @@ export const ModerationSettings = () => {
     setSaveStatus('idle')
     
     try {
-      const success = await saveModerationSettings(settings as ModerationSettingsType)
+      const success = await saveModerationSettingsWithClient(
+        client,
+        settings as ModerationSettingsType
+      )
       if (success) {
         setSaveStatus('success')
         setTimeout(() => setSaveStatus('idle'), 3000)
