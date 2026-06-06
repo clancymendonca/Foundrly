@@ -3357,8 +3357,8 @@ export async function GET() {
 #### 5.3.10. Development and Testing Tools
 
 **Testing API Endpoints:**
-- **Email Testing**: `/api/test-email` for email service validation
-- **Notification Testing**: `/api/test-notification` for notification system testing
+- **Email Testing**: `/api/dev/test-email` for email service validation
+- **Notification Testing**: `/api/dev/test-notification` for notification system testing
 - **Toast Testing**: `/api/test-toast` for UI notification testing
 
 **Batch Operations:**
@@ -4048,7 +4048,7 @@ Foundrly implements a comprehensive testing strategy covering unit, integration,
 ```typescript
 // __tests__/components/StartupCard.test.tsx
 import { render, screen, fireEvent } from '@testing-library/react'
-import { StartupCard } from '@/components/StartupCard'
+import { StartupCard } from '@/components/startup/StartupCard'
 
 const mockStartup = {
   _id: 'test-id',

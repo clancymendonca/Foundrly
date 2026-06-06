@@ -114,12 +114,12 @@ The email includes all form data:
 
 ### Test Email Configuration
 ```bash
-curl http://localhost:3000/api/test-email
+curl http://localhost:3000/api/dev/test-email
 ```
 
 ### Test General Email
 ```bash
-curl -X POST http://localhost:3000/api/debug-send-email \
+curl -X POST http://localhost:3000/api/dev/debug-send-email \
   -H "Content-Type: application/json" \
   -d '{"to": "test@example.com"}'
 ```
@@ -161,7 +161,7 @@ Submit the interested form through the UI and check:
 1. Check SMTP configuration (`SMTP_USER`, `SMTP_PASS`)
 2. Verify user has email notifications enabled
 3. Check server logs for email errors
-4. Test email configuration with `/api/test-email`
+4. Test email configuration with `/api/dev/test-email`
 
 ### Push Notifications Not Working
 1. Check if user has granted push permission

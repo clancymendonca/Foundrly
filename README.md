@@ -5,12 +5,12 @@
 ## 📚 **Documentation**
 
 - **[Documentation index](./docs/README.md)** (all guides in one place)
-- **[Getting Started](./GETTING_STARTED.md)**
-- **[Developer Guide](./DEVELOPER_GUIDE.md)** (CI, pinned stack, tests)
-- **[Architecture Overview](./ARCHITECTURE_OVERVIEW.md)**
-- **[API Reference](./API_REFERENCE.md)**
-- **[Deployment Guide](./DEPLOYMENT_GUIDE.md)**
-- **[Troubleshooting Guide](./TROUBLESHOOTING_GUIDE.md)**
+- **[Getting Started](./docs/core/GETTING_STARTED.md)**
+- **[Developer Guide](./docs/core/DEVELOPER_GUIDE.md)** (CI, pinned stack, tests)
+- **[Architecture Overview](./docs/core/ARCHITECTURE_OVERVIEW.md)**
+- **[API Reference](./docs/core/API_REFERENCE.md)**
+- **[Deployment Guide](./docs/deployment/DEPLOYMENT_GUIDE.md)**
+- **[Troubleshooting Guide](./docs/operations/TROUBLESHOOTING_GUIDE.md)**
 
 Additional topics (badges, notifications, analytics, Docker, Vercel, AI, APIs) are linked from the index above.
 

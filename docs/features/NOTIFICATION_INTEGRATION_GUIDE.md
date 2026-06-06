@@ -19,8 +19,8 @@ This guide explains how to integrate push notifications into your existing compo
 
 ### Step 1: Import the Hook
 ```tsx
-import { useClientNotifications } from '@/hooks/useClientNotifications';
-import { useStreamChatPushNotifications } from '@/hooks/useStreamChatPushNotifications';
+import { useClientNotifications } from '@/hooks/notifications/useClientNotifications';
+import { useStreamChatPushNotifications } from '@/hooks/notifications/useStreamChatPushNotifications';
 ```
 
 ### Step 2: Use in Component
