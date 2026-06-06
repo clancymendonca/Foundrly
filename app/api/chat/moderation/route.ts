@@ -14,6 +14,12 @@ const apiKey = process.env.STREAM_API_KEY!
 const apiSecret = process.env.STREAM_API_SECRET!
 const webhookSecret = process.env.STREAM_WEBHOOK_SECRET!
 
+/**
+ * Extracts moderation metadata for use in activity logs and reports.
+ *
+ * @param result - Moderation result containing metadata fields
+ * @returns An object with `source` and `model` properties from the moderation result
+ */
 function activityMeta(result: ModerationResultWithMeta) {
   return {
     source: result.source,
@@ -21,6 +27,15 @@ function activityMeta(result: ModerationResultWithMeta) {
   }
 }
 
+/**
+ * Handle Stream Chat webhook events: verify the webhook signature, run content moderation,
+ * and apply the resulting action (delete, ban, report, or warn).
+ *
+ * @param request - The incoming Next.js request containing the webhook payload and `x-signature` header
+ * @returns A JSON NextResponse indicating success or error. On successful moderation actions the response
+ * includes `moderationResult` and `action`; on failure returns an error message with an appropriate HTTP
+ * status (401 for auth issues, 400 for invalid payload, 404 if the user is not found, or 500 for internal errors).
+ */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
@@ -104,6 +119,14 @@ export async function POST(request: NextRequest) {
   }
 }
 
+/**
+ * Deletes a flagged message from the provided channel and records the moderation activity.
+ *
+ * @param channel - Server-side channel instance exposing a `deleteMessage(id, opts)` method
+ * @param messageId - The ID of the message to delete
+ * @param moderationResult - Moderation result and metadata (reason, severity, source, model, etc.) used for logging
+ * @param user - The message author record containing `_id` and optional `name`/`username` for identification in logs
+ */
 async function handleMessageDeletion(
   channel: { deleteMessage: (id: string, opts?: object) => Promise<unknown> },
   messageId: string,
@@ -131,6 +154,16 @@ async function handleMessageDeletion(
   }
 }
 
+/**
+ * Applies automated ban or strike logic to a user based on a moderation result, persists ban state, and logs the moderation activity.
+ *
+ * Uses moderation settings (when provided) to determine whether auto-ban is enabled, the strike threshold, and default ban duration. If auto-ban is disabled or the user has not reached the configured strike threshold (and the severity is not `critical`), the function records a warning instead of banning. When a ban is applied it computes the appropriate ban duration (including permanent bans for `critical` severity), appends a ban-history entry, updates the user's ban fields in the datastore, and logs a `user_banned` activity. Errors are caught and logged; the function does not throw.
+ *
+ * @param user - The user document to update (must include `_id`; may include `name`, `username`, `banHistory`, and `strikeCount`)
+ * @param moderationResult - The moderation outcome including `reason`, `severity`, and metadata used for activity logging
+ * @param messageId - Identifier of the message that triggered moderation, used as the related item in logs
+ * @param settings - Moderation settings or `null`; when present, `settings.autoBan.enabled`, `settings.autoBan.strikeThreshold`, and `settings.autoBan.duration` influence behavior
+ */
 async function handleUserBan(
   user: {
     _id: string
@@ -216,6 +249,18 @@ async function handleUserBan(
   }
 }
 
+/**
+ * Creates a Sanity "report" document for a flagged message and logs a `report_created` moderation activity.
+ *
+ * The created report contains the moderation reason, detected patterns, confidence, source, optional model, original message text,
+ * timestamp, and admin notes including severity and channel/message identifiers. After creation, a moderation activity entry is logged
+ * that references the report and includes moderation metadata from `moderationResult`.
+ *
+ * @param user - The reported user object; must include `_id` and may include `name` or `username` for activity logging
+ * @param moderationResult - Moderation result metadata (reason, patterns, confidence, source, model, severity) used to build the report and activity
+ * @param message - The original message object containing `id` and `text` to include in the report
+ * @param channelId - The channel identifier where the message was posted (used in admin notes and activity)
+ */
 async function createModerationReport(
   user: { _id: string; name?: string; username?: string },
   moderationResult: ModerationResultWithMeta,
@@ -255,6 +300,14 @@ async function createModerationReport(
   }
 }
 
+/**
+ * Sends a system warning message to a channel and records a corresponding moderation activity.
+ *
+ * @param channel - Stream channel instance used to send the system message
+ * @param user - User object for whom the warning is recorded
+ * @param moderationResult - Moderation result metadata describing reason, severity, and detected patterns
+ * @param channelId - Identifier of the channel where the warning was issued
+ */
 async function handleUserWarning(
   channel: { sendMessage: (msg: object) => Promise<unknown> },
   user: { _id: string; name?: string; username?: string },

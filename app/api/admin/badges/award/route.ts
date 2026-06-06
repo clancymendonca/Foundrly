@@ -3,6 +3,12 @@ import { getAdminSession } from '@/lib/admin-auth'
 import { client } from '@/sanity/lib/client'
 import { writeClient } from '@/sanity/lib/write-client'
 
+/**
+ * Awards a badge to a user by creating a `userBadge` document in Sanity.
+ *
+ * @param request - A NextRequest whose JSON body must include `userId` and `badgeId` (both strings).
+ * @returns A JSON response: on success `{ success: true, userBadge }` containing the created document; on error `{ error: string }` with an appropriate HTTP status (`401`, `400`, `404`, `409`, or `500`).
+ */
 export async function POST(request: NextRequest) {
   try {
     const session = await getAdminSession()

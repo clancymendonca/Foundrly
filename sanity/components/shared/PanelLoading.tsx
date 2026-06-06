@@ -5,6 +5,12 @@ interface PanelLoadingProps {
   message?: string
 }
 
+/**
+ * Renders a loading panel with a centered spinner and label.
+ *
+ * @param message - Text to display next to the spinner; defaults to "Loading..."
+ * @returns A Card containing a centered Spinner and a muted Text element showing `message`
+ */
 export function PanelLoading({ message = 'Loading...' }: PanelLoadingProps) {
   return (
     <Card padding={6} radius={3} shadow={2}>

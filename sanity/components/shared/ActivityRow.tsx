@@ -9,6 +9,13 @@ interface ActivityRowProps {
   compact?: boolean
 }
 
+/**
+ * Render a card that displays a moderation activity entry.
+ *
+ * @param activity - The moderation activity to display (fields used: `userName`, `type`, `reason`, `itemType`, `itemId`, `source`, `model`, `severity`, `timestamp`)
+ * @param compact - If `true`, use a denser layout and omit optional item and source lines
+ * @returns A JSX element representing the activity row card
+ */
 export function ActivityRow({ activity, compact = false }: ActivityRowProps) {
   return (
     <Card

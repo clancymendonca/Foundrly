@@ -4,6 +4,11 @@ import { saveModerationSettings } from '@/sanity/lib/moderation-mutations'
 import type { ModerationSettings } from '@/sanity/lib/moderation-queries'
 import { auth } from '@/auth'
 
+/**
+ * Fetches the current moderation settings and responds with a JSON payload.
+ *
+ * @returns A JSON response containing `{ success: true, settings }` on success, or `{ error: 'Failed to fetch moderation settings' }` with HTTP status `500` on failure.
+ */
 export async function GET() {
   try {
     const settings = await getModerationSettings()
@@ -21,6 +26,12 @@ export async function GET() {
   }
 }
 
+/**
+ * Handle POST requests to update moderation settings.
+ *
+ * @param request - HTTP request whose JSON body must include a `settings` object conforming to the moderation settings schema.
+ * @returns An HTTP JSON response. On success the body contains `success` (boolean), the saved `settings`, and a `message`. On client errors the body contains `error` (and `details` when validation fails) with status `400` or `401`. On server failure the body contains `error` with status `500`.
+ */
 export async function POST(request: Request) {
   try {
     const session = await auth()
@@ -66,6 +77,18 @@ const VALID_ACTIONS = ['warn', 'delete', 'ban', 'report'] as const
 const VALID_SEVERITIES = ['low', 'medium', 'high', 'critical'] as const
 const VALID_DURATIONS = ['1h', '24h', '7d', '365d', 'perm'] as const
 
+/**
+ * Validates a partial moderation settings object and collects any schema violations.
+ *
+ * Performs presence and value checks for top-level fields (`enabled`, `severity`), the
+ * `actions` map (expects keys: `profanity`, `hateSpeech`, `threats`, `spam`, `personalInfo`),
+ * numeric `thresholds` (`messageLength`, `repetitionCount`, `capsRatio`, `confidence`), and
+ * the `autoBan` object (`enabled`, `duration`, `strikeThreshold`). Also validates optional
+ * boolean flags `useModelModeration` and `fallbackToRegex`.
+ *
+ * @param settings - A partial ModerationSettings object to validate
+ * @returns An array of validation error messages; empty if `settings` passes all checks
+ */
 function validateModerationSettings(settings: Partial<ModerationSettings>): string[] {
   const errors: string[] = []
 

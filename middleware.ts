@@ -4,6 +4,11 @@ import { auth } from '@/auth'
 
 const PROTECTED_PREFIXES = ['/admin', '/studio']
 
+/**
+ * Loads the comma-separated `ADMIN_USER_IDS` environment variable and returns the parsed list of admin user IDs.
+ *
+ * @returns An array of trimmed, non-empty admin user ID strings; an empty array if `ADMIN_USER_IDS` is unset or contains no entries.
+ */
 function getAdminUserIds(): string[] {
   const raw = process.env.ADMIN_USER_IDS ?? ''
   return raw
@@ -12,6 +17,14 @@ function getAdminUserIds(): string[] {
     .filter(Boolean)
 }
 
+/**
+ * Enforces authentication and optional admin allowlist for requests to protected routes.
+ *
+ * For paths under `/admin` or `/studio`, redirects unauthenticated requests to the NextAuth sign-in page with the original pathname set as `callbackUrl`, redirects authenticated users who are not in the `ADMIN_USER_IDS` allowlist to `/`, and allows all other requests to proceed.
+ *
+ * @param request - The incoming Next.js request
+ * @returns A `NextResponse` that either continues the request or redirects the client to sign-in or `/` depending on authentication and authorization state
+ */
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 

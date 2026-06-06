@@ -36,12 +36,25 @@ const SEVERITIES: { value: string; title: string }[] = [
   { value: 'critical', title: 'Critical' },
 ]
 
+/**
+ * Compute the ISO timestamp marking the lower bound for the given date range.
+ *
+ * @param range - One of '24h', '7d', '30d', or 'all' indicating the desired period
+ * @returns An ISO 8601 timestamp representing the time `range` hours ago, or `undefined` when `range` is `'all'`
+ */
 function getSinceDate(range: DateRange): string | undefined {
   if (range === 'all') return undefined
   const hours = range === '24h' ? 24 : range === '7d' ? 168 : 720
   return new Date(Date.now() - hours * 60 * 60 * 1000).toISOString()
 }
 
+/**
+ * Export the provided moderation activities as a CSV file and initiate download with a date-stamped filename.
+ *
+ * The CSV contains the columns: Timestamp, Type, User, Reason, Severity, Item Type, Item ID. Double quotes inside reason fields are escaped by doubling them.
+ *
+ * @param activities - Array of moderation activity objects to include in the exported CSV
+ */
 function exportToCsv(activities: ModerationActivity[]) {
   const headers = ['Timestamp', 'Type', 'User', 'Reason', 'Severity', 'Item Type', 'Item ID']
   const rows = activities.map((a) => [

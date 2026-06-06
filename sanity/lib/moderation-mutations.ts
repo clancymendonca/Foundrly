@@ -10,6 +10,12 @@ export async function saveModerationSettings(
   return saveModerationSettingsWithClient(writeClient, settings)
 }
 
+/**
+ * Persist a moderation activity record to the data store.
+ *
+ * @param activity - Moderation activity details (omitting `id` and `timestamp`); a `timestamp` will be added before persisting.
+ * @returns `true` if the activity was written successfully, `false` otherwise.
+ */
 export async function logModerationActivity(
   activity: Omit<ModerationActivity, 'id' | 'timestamp'>
 ): Promise<boolean> {

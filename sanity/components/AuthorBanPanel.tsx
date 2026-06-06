@@ -35,12 +35,29 @@ interface AuthorBanData {
   }>
 }
 
+/**
+ * Selects a UI tone name corresponding to the given strike count.
+ *
+ * @param strikes - The author's current number of strikes
+ * @returns `'positive'` if `strikes` is 0, `'caution'` if `strikes` is 1 or 2, `'critical'` if `strikes` is 3 or greater
+ */
 function getStrikeColor(strikes: number): 'positive' | 'caution' | 'critical' {
   if (strikes === 0) return 'positive'
   if (strikes <= 2) return 'caution'
   return 'critical'
 }
 
+/**
+ * Renders a three-segment horizontal meter that visualizes an author's strike level.
+ *
+ * Each segment is colored according to the `strikes` value:
+ * - `0` — all segments use a positive tone
+ * - `1–2` — the first `strikes` segments use a caution tone; remaining segments use a default tone
+ * - `>= 3` — all segments use a critical tone
+ *
+ * @param strikes - The number of strikes (0 or greater) to represent
+ * @returns A React element showing the three-segment strike meter
+ */
 function StrikeMeter({ strikes }: { strikes: number }) {
   const segments = [0, 1, 2].map((i) => {
     if (strikes === 0) return 'positive'

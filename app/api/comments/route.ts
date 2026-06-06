@@ -7,7 +7,13 @@ import { createCommentNotification, createReplyNotification } from '@/sanity/lib
 import { ServerPushNotificationService } from '@/lib/notifications/serverPushNotifications';
 import { checkUserContentModeration } from '@/lib/content-moderation-guard';
 
-// GET: Fetch comments for a startup (PUBLIC - no auth required)
+/**
+ * Fetches and returns the comment reply tree for a startup.
+ *
+ * Builds a list of root comments each containing nested `replies` arrays sorted by `createdAt` ascending.
+ *
+ * @returns An object with a `comments` array containing root comments with nested `replies` sorted by `createdAt` (oldest first); returns `{ comments: [] }` if `startupId` is missing or on error.
+ */
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const startupId = searchParams.get('startupId');
@@ -60,7 +66,13 @@ export async function GET(req: Request) {
   }
 }
 
-// POST: Add a new comment, reply, like, or dislike (REQUIRES AUTH)
+/**
+ * Handle POST requests to create a top-level comment, reply to a comment, or register a like/dislike for a comment; requires an authenticated, non-suspended user.
+ *
+ * Performs a ban check and content moderation for created comments/replies, updates or creates the relevant Sanity documents, patches parent/startup documents as needed, and triggers non-fatal notification and analytics side effects. Supports the `action` values `'create'`, `'reply'`, `'like'`, and `'dislike'`.
+ *
+ * @returns A JSON response object. On success: `{ success: true, comment?: <created comment>, reply?: <created reply> }`. On failure: `{ success: false, message: string }` with an appropriate HTTP status (e.g., 400 for validation errors, 401 for unauthenticated, 403 for bans or moderation rejections, 500 for server errors).
+ */
 export async function POST(req: Request) {
   const session = await auth();
   if (!session) {

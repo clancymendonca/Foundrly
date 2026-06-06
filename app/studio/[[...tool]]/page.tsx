@@ -13,6 +13,11 @@ import config from '../../../sanity.config'
 
 export const dynamic = 'force-dynamic'
 
+/**
+ * Renders the Sanity Studio application using the project's Sanity configuration.
+ *
+ * @returns A React element that mounts the Sanity Studio UI configured with `config`.
+ */
 export default function StudioPage() {
   return <NextStudio config={config} />
 }

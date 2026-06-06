@@ -36,6 +36,12 @@ export interface RawModerationAnalysis {
   confidence: number
 }
 
+/**
+ * Map a textual action name to the corresponding ModerationAction enum value.
+ *
+ * @param action - Action name (expected: `"delete"`, `"ban"`, `"report"`, or `"warn"`)
+ * @returns `ModerationAction.DELETE` for `"delete"`, `ModerationAction.BAN` for `"ban"`, `ModerationAction.REPORT` for `"report"`, and `ModerationAction.WARN` for `"warn"` or any unrecognized value
+ */
 function mapAction(action: string): ModerationAction {
   switch (action) {
     case 'delete':
@@ -50,6 +56,12 @@ function mapAction(action: string): ModerationAction {
   }
 }
 
+/**
+ * Convert a severity label string into the corresponding ModerationSeverity enum.
+ *
+ * @param severity - Severity label (e.g., "low", "medium", "high", "critical")
+ * @returns The matching ModerationSeverity: `CRITICAL` for "critical", `HIGH` for "high", `MEDIUM` for "medium", and `LOW` for "low" or any unrecognized value
+ */
 function parseSeverity(severity: string): ModerationSeverity {
   switch (severity) {
     case 'critical':
@@ -64,6 +76,13 @@ function parseSeverity(severity: string): ModerationSeverity {
   }
 }
 
+/**
+ * Selects the moderation action for a content category using optional settings.
+ *
+ * @param category - The content category to resolve (one of the `ContentCategory` values)
+ * @param settings - Optional moderation settings whose `actions` map overrides defaults
+ * @returns The `ModerationAction` assigned to `category` according to `settings.actions` or the defaults; `WARN` if the category is not configured
+ */
 function getActionForCategory(
   category: string,
   settings?: ModerationSettings | null
@@ -76,6 +95,13 @@ function getActionForCategory(
   return ModerationAction.WARN
 }
 
+/**
+ * Converts a raw moderation analysis into a concrete ModerationResult according to optional moderation settings.
+ *
+ * @param raw - Incoming moderation analysis with flags, categories, severity, reason, and confidence
+ * @param settings - Optional moderation settings (enable/disable, severity floor, thresholds, per-category actions); when omitted defaults are used
+ * @returns A ModerationResult: either a flagged result populated with parsed severity, selected action, reason, category patterns, confidence, and primaryCategory, or a non-flagged empty result when moderation is disabled, the raw analysis is not flagged, the severity is below the configured floor, or the confidence is below the configured threshold
+ */
 export function applyModerationSettings(
   raw: RawModerationAnalysis,
   settings?: ModerationSettings | null

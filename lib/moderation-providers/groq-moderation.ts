@@ -23,6 +23,20 @@ Categories must use only these values when applicable: profanity, hateSpeech, th
 If content is clean, set isFlagged to false, severity to "low", categories to [], primaryCategory to "", reason to "", confidence to 0.
 Be strict on hate speech, slurs, threats, harassment, and explicit profanity.`
 
+/**
+ * Parse and normalize a moderation JSON string into a RawModerationAnalysis.
+ *
+ * The function trims the input, removes common Markdown code-fence wrappers (``` or ```json),
+ * parses the remaining text as JSON, and normalizes the resulting fields.
+ *
+ * @returns An object with the following normalized fields:
+ * - `isFlagged`: boolean coerced from the parsed value
+ * - `severity`: parsed string severity or `'low'` if missing/non-string
+ * - `categories`: array of string categories (filtered to strings) or `[]`
+ * - `primaryCategory`: parsed string or `undefined` if missing/non-string
+ * - `reason`: parsed string or an empty string if missing/non-string
+ * - `confidence`: numeric value clamped to the range `0`–`1`, or `0` if missing/non-number
+ */
 function parseJsonResponse(text: string): RawModerationAnalysis {
   const cleaned = text
     .trim()
@@ -49,6 +63,17 @@ function parseJsonResponse(text: string): RawModerationAnalysis {
   }
 }
 
+/**
+ * Moderates the provided text with Groq chat models and returns the parsed moderation analysis along with the model that produced it.
+ *
+ * @param text - The message content to be moderated
+ * @returns The normalization of the model's JSON response as `analysis`, and the `model` identifier that produced it
+ * @throws Error('GROQ_API_KEY not configured') if the GROQ_API_KEY environment variable is missing
+ * @throws Error('GROQ rate limit exceeded') if the Groq rate limiter disallows the call
+ * @throws Error(`GROQ API error ${status}: ${body}`) if the Groq HTTP response is not OK
+ * @throws Error('Empty GROQ moderation response') if the API response contains no moderation content
+ * @throws The last encountered error if all configured GROQ models fail
+ */
 export async function moderateWithGroq(
   text: string
 ): Promise<{ analysis: RawModerationAnalysis; model: string }> {

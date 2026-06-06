@@ -3,6 +3,11 @@ import { getAdminSession } from '@/lib/admin-auth'
 import { client } from '@/sanity/lib/client'
 import { writeClient } from '@/sanity/lib/write-client'
 
+/**
+ * Revokes a user badge identified by `userBadgeId` in the request body for an authenticated admin.
+ *
+ * @returns A NextResponse containing `{ success: true }` on success, or `{ error: string }` with an appropriate HTTP status (`401`, `400`, `404`, or `500`) on failure.
+ */
 export async function POST(request: NextRequest) {
   try {
     const session = await getAdminSession()

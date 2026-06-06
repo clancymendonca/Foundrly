@@ -12,6 +12,19 @@ interface ConfirmDialogProps {
   onCancel: () => void
 }
 
+/**
+ * Renders a confirmation dialog with a title, description, and Cancel/Confirm actions.
+ *
+ * @param open - Whether the dialog is visible.
+ * @param title - Header text displayed at the top of the dialog.
+ * @param description - Body text shown inside the dialog.
+ * @param confirmLabel - Label for the confirm button (default: "Confirm").
+ * @param confirmTone - Visual tone for the confirm button; one of "default", "critical", or "caution".
+ * @param isLoading - When true, disables both buttons and replaces the confirm button text with "Processing...".
+ * @param onConfirm - Called when the confirm button is clicked.
+ * @param onCancel - Called when the cancel button or dialog close is triggered.
+ * @returns The dialog element when `open` is true, otherwise `null`.
+ */
 export function ConfirmDialog({
   open,
   title,

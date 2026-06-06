@@ -60,10 +60,32 @@ export interface ModerationActivityFilters {
   offset?: number
 }
 
+/**
+ * Produce an ISO 8601 timestamp for the time a given number of hours in the past.
+ *
+ * @param hours - Number of hours before the current time
+ * @returns An ISO 8601 timestamp string for the time `hours` hours ago
+ */
 function hoursAgo(hours: number): string {
   return new Date(Date.now() - hours * 60 * 60 * 1000).toISOString()
 }
 
+/**
+ * Fetches aggregated moderation counters and computes the moderation rate.
+ *
+ * @param since - ISO timestamp string to limit event-based counts (defaults to 24 hours ago when omitted)
+ * @returns An object containing:
+ * - `moderationEvents`: number of moderation activity records since `since`
+ * - `flaggedMessages`: number of warning or message deletion events since `since`
+ * - `deletedMessages`: number of message deletion events since `since`
+ * - `bannedUsers`: total count of banned authors
+ * - `activeReports`: count of reports with status `"pending"`
+ * - `moderationRate`: percentage of moderated content (flagged comments + banned startups) over total content (comments + startups), rounded to two decimals
+ * - `totalComments`: total number of comments
+ * - `flaggedComments`: number of comments referenced by reports
+ * - `totalStartups`: total number of startups
+ * - `bannedStartups`: total number of banned startups
+ */
 export async function getModerationStats(since?: string): Promise<ModerationStats> {
   const sinceTimestamp = since ?? hoursAgo(24)
 
@@ -135,6 +157,18 @@ export async function getModerationStats(since?: string): Promise<ModerationStat
   }
 }
 
+/**
+ * Fetches moderation activity records filtered and paginated by the provided criteria.
+ *
+ * Retrieves documents from the `moderationActivity` index that match optional `type`, `severity`, and `since` filters, ordered by `timestamp` descending, and maps each document's `_id` to `id`.
+ *
+ * @param filters - Optional filters and pagination:
+ *   - `type` — activity type to match (e.g., "message_deleted", "user_banned").
+ *   - `severity` — severity level to match ("low" | "medium" | "high" | "critical").
+ *   - `since` — ISO timestamp; only include activities with `timestamp >= since`.
+ *   - `limit` — maximum number of items to return (default 50).
+ *   - `offset` — number of items to skip for pagination (default 0).
+ * @returns An array of `ModerationActivity` objects matching the filters, ordered by newest first. Returns an empty array if the query fails. */
 export async function getModerationActivity(
   filters: ModerationActivityFilters = {}
 ): Promise<ModerationActivity[]> {
@@ -208,6 +242,15 @@ export async function getModerationActivity(
   }
 }
 
+/**
+ * Fetches the moderation configuration from the CMS and applies sensible defaults for any missing fields.
+ *
+ * Reads the first `moderationSettings` document and fills in default values for `enabled`, `severity`,
+ * `actions`, `thresholds`, `autoBan`, `useModelModeration`, and `fallbackToRegex` when those properties are absent.
+ * If no settings document exists or an error occurs while fetching, the function returns `null`.
+ *
+ * @returns A `ModerationSettings` object with defaults applied for missing fields, or `null` if no document is found or on error.
+ */
 export async function getModerationSettings(): Promise<ModerationSettings | null> {
   try {
     const settings = await studioReadClient.fetch(`

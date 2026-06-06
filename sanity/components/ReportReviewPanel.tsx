@@ -13,6 +13,20 @@ import {
   reportTypeTone,
 } from './shared'
 
+/**
+ * Creates a `moderationActivity` document in Sanity to record a studio moderation event.
+ *
+ * The created document includes the provided activity fields plus `source: 'studio'` and a current ISO `timestamp`.
+ *
+ * @param activity - Details of the moderation activity:
+ *   - `type`: Activity type (e.g., `'warning_sent'`, `'comment_deleted'`).
+ *   - `userId`: Identifier of the user related to the activity.
+ *   - `userName`: Display name of the user related to the activity.
+ *   - `reason`: Human-readable reason for the activity.
+ *   - `severity`: One of `'low' | 'medium' | 'high' | 'critical'`.
+ *   - `itemId` (optional): Identifier of the affected item (comment, report, etc.).
+ *   - `itemType` (optional): Type of the affected item (e.g., `'comment'`, `'report'`).
+ */
 async function logStudioActivity(
   client: ReturnType<typeof useClient>,
   activity: {

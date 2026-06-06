@@ -8,21 +8,44 @@ const CI_MODE = process.argv.includes('--ci') || process.env.CI === 'true'
 
 const results = []
 
+/**
+ * Record a successful check result and print a success line to the console.
+ * @param {string} name - Brief identifier for the check.
+ * @param {string} [detail] - Optional detail message appended to the result and console output.
+ */
 function pass(name, detail = '') {
   results.push({ name, ok: true, detail })
   console.log(`✓ ${name}${detail ? ` — ${detail}` : ''}`)
 }
 
+/**
+ * Record a failing check with an optional detail message and log it.
+ * @param {string} name - Human-readable name of the check that failed.
+ * @param {string} [detail] - Optional additional detail to include in the stored result and log.
+ */
 function fail(name, detail = '') {
   results.push({ name, ok: false, detail })
   console.log(`✗ ${name}${detail ? ` — ${detail}` : ''}`)
 }
 
+/**
+ * Record and log a skipped test result.
+ *
+ * Adds a skipped entry to the global `results` array and prints a concise skipped message to the console.
+ * @param {string} name - The name of the check being skipped.
+ * @param {string} [detail] - Optional reason or detail for why the check was skipped.
+ */
 function skip(name, detail = '') {
   results.push({ name, ok: true, detail: `skipped: ${detail}`, skipped: true })
   console.log(`○ ${name} — skipped (${detail})`)
 }
 
+/**
+ * Fetches a resource at a path relative to BASE and returns the response details.
+ * @param {string} path - Path relative to the configured BASE (e.g. "/api/health").
+ * @param {Object} [options] - Additional fetch options; provided `headers` are merged with `Content-Type: application/json` and the request uses `redirect: 'manual'`.
+ * @returns {{status: number, body: any, headers: Headers}} An object containing the HTTP status, the response body (parsed JSON when possible, `null` for an empty body, or raw text if JSON parsing fails), and the response headers.
+ */
 async function fetchJson(path, options = {}) {
   const res = await fetch(`${BASE}${path}`, {
     ...options,
@@ -39,6 +62,13 @@ async function fetchJson(path, options = {}) {
   return { status: res.status, body, headers: res.headers }
 }
 
+/**
+ * Checks a set of Sanity Studio routes for reachability or expected auth redirects and records results.
+ *
+ * For each predefined Studio route this function performs an HTTP request (no automatic redirects) and records:
+ * - a pass if the route responds with 200 (loaded) or 301/302/307/308 (treated as an auth redirect),
+ * - a fail for any other HTTP status or when the request throws.
+ */
 async function testStudioRoutes() {
   const routes = [
     '/studio',
@@ -66,6 +96,12 @@ async function testStudioRoutes() {
   }
 }
 
+/**
+ * Verifies the moderation API by submitting a benign and an offensive sample and recording pass/fail results.
+ *
+ * Sends a clean message that is expected to be unflagged and an offensive message that is expected to be flagged.
+ * Records results via the script's result helpers: passes when responses match expectations and fails on unexpected flags or HTTP errors.
+ */
 async function testModerationApi() {
   // Clean content
   const clean = await fetchJson('/api/moderation/test', {
@@ -96,6 +132,11 @@ async function testModerationApi() {
   }
 }
 
+/**
+ * Verifies that protected admin endpoints reject unauthenticated requests.
+ *
+ * Sends POST requests to a fixed set of admin routes and records a pass if the response status is `401` or `403`; records a fail with the unexpected status otherwise.
+ */
 async function testAdminAuth() {
   const endpoints = [
     { path: '/api/reports/apply-ban', body: { reportedUserId: 'test', banDuration: '24h', reason: 'test' } },
@@ -115,6 +156,14 @@ async function testAdminAuth() {
   }
 }
 
+/**
+ * Checks the Sanity export endpoint and records a pass, fail, or skip result.
+ *
+ * When running in CI mode this check is skipped. Otherwise it treats a response
+ * with status 200 and a truthy `body.ok` as a pass (including notification and
+ * moderationActivity counts in the detail); any other response is recorded as a
+ * failure.
+ */
 async function testExportRoute() {
   if (CI_MODE) {
     skip('Sanity export', 'requires live Sanity project (skipped in CI)')
@@ -128,6 +177,16 @@ async function testExportRoute() {
   }
 }
 
+/**
+ * Verifies the moderation settings endpoint and records a test result.
+ *
+ * Sends a request to the moderation settings route and:
+ * - marks pass with `enabled=<value>` if a 200 response includes an `enabled` value,
+ * - marks pass as `reachable` if a 200 response has no `enabled` value,
+ * - marks pass as `route exists (404 ok if no doc)` for 404 responses,
+ * - marks skip as `Sanity unavailable in CI` when running in CI_MODE and the status is >= 500,
+ * - otherwise marks fail with the HTTP status.
+ */
 async function testModerationSettings() {
   const res = await fetchJson('/api/moderation/settings')
   if (res.status === 200) {
@@ -142,6 +201,12 @@ async function testModerationSettings() {
   }
 }
 
+/**
+ * Checks that an unauthenticated POST to /api/comments requires authentication rather than failing.
+ *
+ * Sends a sample comment-creation request and records a pass if the response status is 401;
+ * records a failure including the actual status otherwise.
+ */
 async function testCommentsModerationShape() {
   // Unauthenticated POST should 401, not 500
   const res = await fetchJson('/api/comments', {
@@ -155,6 +220,14 @@ async function testCommentsModerationShape() {
   }
 }
 
+/**
+ * Run the full E2E smoke test suite against the configured Sanity Studio base URL.
+ *
+ * Performs a HEAD check to ensure the base URL is reachable, executes the suite of
+ * smoke tests (studio routes, moderation API, admin auth endpoints, export route,
+ * moderation settings, and comments moderation shape), prints a summary of results,
+ * and exits the process with code 1 if the base URL is unreachable or any checks fail.
+ */
 async function main() {
   console.log(`\nSanity Studio E2E Test — ${BASE}${CI_MODE ? ' (CI mode)' : ''}\n${'='.repeat(50)}\n`)
 

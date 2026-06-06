@@ -21,6 +21,14 @@ export {
   type ModerationResultWithMeta,
 } from './moderation-service'
 
+/**
+ * Verifies an HMAC-SHA256 webhook signature using a constant-time comparison.
+ *
+ * @param payload - The exact request payload (string) used to compute the HMAC.
+ * @param signature - The hex-encoded HMAC-SHA256 signature provided by the sender.
+ * @param secret - The shared secret key used to compute the expected HMAC.
+ * @returns `true` if `signature` matches the expected HMAC for `payload`, `false` otherwise.
+ */
 export function verifyWebhookSignature(
   payload: string,
   signature: string,
@@ -161,6 +169,11 @@ export class StreamChatModeration {
   }
 }
 
+/**
+ * Create a StreamChatModeration initialized from the STREAM_API_KEY and STREAM_API_SECRET environment variables.
+ *
+ * @returns A new StreamChatModeration instance configured with the environment API key and secret
+ */
 export function createStreamChatModeration(): StreamChatModeration {
   const apiKey = process.env.STREAM_API_KEY!
   const apiSecret = process.env.STREAM_API_SECRET!

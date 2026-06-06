@@ -87,6 +87,13 @@ const DEFAULT_ACTIONS: ModerationSettings['actions'] = {
   personalInfo: 'delete',
 }
 
+/**
+ * Determines whether a given severity meets or exceeds a configured minimum severity floor.
+ *
+ * @param severity - The severity to evaluate
+ * @param floor - The minimum allowed severity (severity floor) to compare against
+ * @returns `true` if `severity` is greater than or equal to `floor`, `false` otherwise
+ */
 function severityMeetsFloor(
   severity: ModerationSeverity,
   floor: ModerationSettings['severity']
@@ -94,6 +101,12 @@ function severityMeetsFloor(
   return SEVERITY_RANK[severity] >= SEVERITY_RANK[floor as ModerationSeverity]
 }
 
+/**
+ * Convert a configured per-category action value into the corresponding ModerationAction enum.
+ *
+ * @param action - The configured action for a content category (`'delete'`, `'ban'`, `'report'`, `'warn'`)
+ * @returns The corresponding `ModerationAction` enum value (`DELETE`, `BAN`, `REPORT`, or `WARN`). Defaults to `WARN` for unrecognized inputs.
+ */
 function mapAction(
   action: ModerationSettings['actions'][ContentCategory]
 ): ModerationAction {
@@ -110,6 +123,13 @@ function mapAction(
   }
 }
 
+/**
+ * Selects the moderation action for a given content category using the provided settings or the built-in defaults.
+ *
+ * @param category - The content category to resolve an action for
+ * @param settings - Optional moderation settings; when omitted or null, category actions are taken from defaults
+ * @returns The resolved `ModerationAction` for the specified category
+ */
 function getActionForCategory(
   category: ContentCategory,
   settings?: ModerationSettings | null
@@ -118,6 +138,12 @@ function getActionForCategory(
   return mapAction(actions[category])
 }
 
+/**
+ * Evaluates a piece of text for inappropriate content using category regexes (profanity, hate speech, threats, spam, personal info) and heuristic signals (length, repetition, excessive caps), producing a structured moderation decision.
+ *
+ * @param settings - Optional moderation settings that can disable the check and override thresholds (`messageLength`, `repetitionCount`, `capsRatio`, `confidence`), severity floor (`severity`), and per-category actions (`actions`).
+ * @returns A ModerationResult describing the outcome: `isFlagged` indicates whether the text was flagged; when flagged the result includes `severity`, `action`, a human-readable `reason`, the list of matched `patterns`, a `confidence` score (0–1), and an optional `primaryCategory`.
+ */
 export function moderateContentRegex(
   text: string,
   settings?: ModerationSettings | null

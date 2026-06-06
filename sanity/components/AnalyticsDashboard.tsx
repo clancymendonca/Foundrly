@@ -21,6 +21,12 @@ interface AnalyticsStats {
   topStartups: Array<{ _id?: string; title?: string; count: number }>
 }
 
+/**
+ * Compute the ISO 8601 timestamp for the start of the given date range.
+ *
+ * @param range - One of `'7d'`, `'30d'`, or `'all'`. `'7d'` maps to 7 days ago, `'30d'` maps to 30 days ago.
+ * @returns An ISO 8601 timestamp string for the computed start date, or `null` when `range` is `'all'`.
+ */
 function getSince(range: DateRange): string | null {
   if (range === 'all') return null
   const days = range === '7d' ? 7 : 30

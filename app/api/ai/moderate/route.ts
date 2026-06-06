@@ -4,6 +4,28 @@ import { canUserPerformAction } from '@/lib/ban-checks';
 import { getModerationSettings } from '@/sanity/lib/moderation-queries';
 import { moderateContentAsync } from '@/lib/moderation-service';
 
+/**
+ * Handles content moderation requests and returns a normalized moderation result.
+ *
+ * Expects the request body to be JSON with `content` (required) and an optional `contentType`.
+ *
+ * @param request - NextRequest whose JSON body must include `content` and may include `contentType`
+ * @returns A JSON response object:
+ * - `success`: `true` on successful moderation, `false` otherwise
+ * - On success, `moderation`: an object with:
+ *   - `isFlagged`: whether the content was flagged
+ *   - `severity`: severity level of the issue
+ *   - `action`: recommended action (e.g., "remove", "review")
+ *   - `reason`: human-readable reason for the decision
+ *   - `patterns`: detected violation patterns
+ *   - `confidence`: confidence score
+ *   - `primaryCategory`: primary moderation category
+ *   - `recommendation`: `action` when flagged, otherwise `"approve"`
+ *   - `issues`: same as `patterns`
+ *   - `explanation`: same as `reason`
+ *   - `contentType`: the provided content type or `"startup"` by default
+ *   - `source`, `model`, `latencyMs`: metadata about the moderation result
+ */
 export async function POST(request: NextRequest) {
   try {
     const session = await auth();
