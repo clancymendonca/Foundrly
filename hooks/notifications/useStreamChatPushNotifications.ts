@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { StreamChatPushService } from '@/lib/notifications/streamChatPushNotifications';
+import { isFcmRegistrationError } from '@/lib/notifications/firebase-client';
 import { StreamChat } from 'stream-chat';
 
 // Interface for push notification state
@@ -174,6 +175,15 @@ export const useStreamChatPushNotifications = (existingChatClient?: StreamChat) 
         lastError = error instanceof Error ? error : new Error('Unknown error');
         console.error(`❌ Attempt ${attempt}/${maxRetries} failed:`, lastError.message);
         
+        // Configuration/auth errors won't succeed on retry
+        if (
+          isFcmRegistrationError(lastError.message) ||
+          lastError.message.includes('permission denied') ||
+          lastError.message.includes('not supported')
+        ) {
+          break;
+        }
+
         // If it's a connection issue, wait before retrying
         if (attempt < maxRetries && (
           lastError.message.includes('not connected') || 

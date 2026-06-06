@@ -1,23 +1,14 @@
 import { StreamChat } from 'stream-chat';
 import { getMessaging, getToken, deleteToken, Messaging } from 'firebase/messaging';
-import { initializeApp, getApps } from 'firebase/app';
-
-// Lightweight Firebase client init to obtain FCM web token
-function ensureFirebaseApp() {
-  if (getApps().length) return;
-  const cfg = {
-    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-  } as any;
-  initializeApp(cfg);
-}
+import {
+  ensureFirebaseApp,
+  formatFcmRegistrationError,
+  getFirebaseVapidKey,
+  isFirebaseConfigured,
+} from '@/lib/notifications/firebase-client';
 
 async function getFcmMessaging(): Promise<Messaging | null> {
   try {
-    // Some Chrome setups inaccurately report unsupported; attempt anyway
     ensureFirebaseApp();
     return getMessaging();
   } catch {
@@ -52,6 +43,9 @@ export class StreamChatPushService {
   async initialize(apiKey: string, userId: string, token: string): Promise<void> {
     try {
       this.chatClient = StreamChat.getInstance(apiKey);
+      if (this.chatClient.userID === userId && !this.chatClient.disconnected) {
+        return;
+      }
       await this.chatClient.connectUser({ id: userId }, token);
       console.log('✅ Stream Chat client initialized for push notifications');
     } catch (error) {
@@ -111,6 +105,12 @@ export class StreamChatPushService {
       throw new Error('Push notifications are not supported');
     }
 
+    if (!isFirebaseConfigured()) {
+      throw new Error(
+        'Firebase is not configured. Set NEXT_PUBLIC_FIREBASE_* environment variables.'
+      );
+    }
+
     try {
       // Re-validate before critical operations
       validateClient();
@@ -131,9 +131,11 @@ export class StreamChatPushService {
         throw new Error('FCM not supported in this browser');
       }
 
-      const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+      const vapidKey = getFirebaseVapidKey();
       if (!vapidKey) {
-        throw new Error('Missing NEXT_PUBLIC_VAPID_PUBLIC_KEY');
+        throw new Error(
+          'Missing NEXT_PUBLIC_FIREBASE_VAPID_KEY (Web Push certificate from Firebase Console)'
+        );
       }
 
       const fcmToken = await getToken(messaging, { vapidKey, serviceWorkerRegistration: swRegistration });
@@ -160,8 +162,9 @@ export class StreamChatPushService {
       console.log('✅ Successfully registered for Stream Chat push notifications');
       return true;
     } catch (error) {
-      console.error('❌ Failed to register for Stream Chat push notifications:', error);
-      throw error;
+      const message = formatFcmRegistrationError(error);
+      console.error('❌ Failed to register for Stream Chat push notifications:', message);
+      throw new Error(message);
     }
   }
 
@@ -185,8 +188,8 @@ export class StreamChatPushService {
       const messaging = await getFcmMessaging();
       if (messaging) {
         try {
-          const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-          const token = await getToken(messaging, { vapidKey });
+          const vapidKey = getFirebaseVapidKey();
+          const token = await getToken(messaging, { vapidKey, serviceWorkerRegistration: undefined });
           if (token) {
             try {
               await (this.chatClient as any).removeDevice(token, 'foundrly');
