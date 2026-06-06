@@ -2,16 +2,16 @@ import { auth } from "@/auth";
 import { client } from "@/sanity/lib/client";
 import { notFound } from "next/navigation";
 import Image from "next/image";
-import UserStartups from "@/components/UserStartups";
+import UserStartups from "@/components/startup/UserStartups";
 import { Suspense } from "react";
-import { StartupCardSkeleton } from "@/components/StartupCard";
+import { StartupCardSkeleton } from "@/components/startup/StartupCard";
 import { AUTHOR_BY_ID_QUERY } from "@/sanity/lib/queries";
-import ProfileFollowWrapper from "@/components/ProfileFollowWrapper";
+import ProfileFollowWrapper from "@/components/profile/ProfileFollowWrapper";
 import { Button } from "@/components/ui/button";
-import UserSaveButton from "@/components/UserSaveButton";
-import BadgeLabels from "@/components/BadgeLabels";
-import { enhancedBadgeSystem, TIER_LEVELS } from "@/lib/enhanced-badge-system";
-import UserSidebarWrapper from "@/components/UserSidebarWrapper";
+import UserSaveButton from "@/components/saved/UserSaveButton";
+import BadgeLabels from "@/components/badges/BadgeLabels";
+import { enhancedBadgeSystem, TIER_LEVELS } from "@/lib/badges/enhanced-badge-system";
+import UserSidebarWrapper from "@/components/layout/UserSidebarWrapper";
 
 export const experimental_ppr = true;
 

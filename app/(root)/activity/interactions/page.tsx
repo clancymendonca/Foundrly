@@ -1,8 +1,8 @@
 "use client";
 
 import { useSession } from 'next-auth/react';
-import ActivityMainContent from '@/components/ActivityMainContent';
-import MobilePageHeader from '@/components/MobilePageHeader';
+import ActivityMainContent from '@/components/activity/ActivityMainContent';
+import MobilePageHeader from '@/components/layout/MobilePageHeader';
 
 export default function ActivityInteractionsPage() {
   const { data: session } = useSession();

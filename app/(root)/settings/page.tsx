@@ -2,9 +2,9 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { client } from "@/sanity/lib/client";
 import { AUTHOR_BY_ID_QUERY } from "@/sanity/lib/queries";
-import SettingsClient from "@/components/SettingsClient";
-import UserSidebarWrapper from "@/components/UserSidebarWrapper";
-import MobilePageHeader from "@/components/MobilePageHeader";
+import SettingsClient from "@/components/settings/SettingsClient";
+import UserSidebarWrapper from "@/components/layout/UserSidebarWrapper";
+import MobilePageHeader from "@/components/layout/MobilePageHeader";
 
 export default async function SettingsPage() {
   const session = await auth();

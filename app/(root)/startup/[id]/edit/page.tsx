@@ -2,7 +2,7 @@ import { auth } from "@/auth";
 import { client } from "@/sanity/lib/client";
 import { STARTUP_BY_ID_QUERY } from "@/sanity/lib/queries";
 import { notFound, redirect } from "next/navigation";
-import StartupEditForm from "@/components/StartupEditForm";
+import StartupEditForm from "@/components/startup/StartupEditForm";
 
 const Page = async ({ params }: { params: Promise<{ id: string }> }) => {
   const id = (await params).id;

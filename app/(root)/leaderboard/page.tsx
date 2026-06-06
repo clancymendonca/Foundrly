@@ -1,5 +1,5 @@
 import React from 'react';
-import LeaderboardSection from '@/components/LeaderboardSection';
+import LeaderboardSection from '@/components/badges/LeaderboardSection';
 
 export const metadata = {
   title: 'Leaderboards - Foundrly',

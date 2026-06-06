@@ -2,7 +2,7 @@
 
 import { useSession } from "next-auth/react";
 import { useParams, useRouter } from "next/navigation";
-import UserSidebar from "@/components/UserSidebar";
+import UserSidebar from "@/components/layout/UserSidebar";
 
 export default function UserMenuPage() {
     const { data: session } = useSession();

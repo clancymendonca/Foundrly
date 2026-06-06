@@ -1,7 +1,7 @@
 "use client";
 
-import BuyMeACoffeeWidget from '@/components/BuyMeACoffeeWidget';
-import BuyMeACoffeeButton from '@/components/BuyMeACoffeeButton';
+import BuyMeACoffeeWidget from '@/components/donate/BuyMeACoffeeWidget';
+import BuyMeACoffeeButton from '@/components/donate/BuyMeACoffeeButton';
 
 export default function DonatePage() {
   return (

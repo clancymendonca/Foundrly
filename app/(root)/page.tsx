@@ -1,12 +1,12 @@
-import SearchForm from "../../components/SearchForm";
-import StartupCard, { StartupTypeCard } from "../../components/StartupCard";
+import SearchForm from "@/components/search/SearchForm";
+import StartupCard, { StartupTypeCard } from "@/components/startup/StartupCard";
 import { STARTUPS_SORTED_QUERY } from "@/sanity/lib/queries";
 import { sanityFetch, SanityLive } from "@/sanity/lib/live";
 import { auth } from "@/auth";
-import FilterDropdown from "../../components/FilterDropdown";
-import AIRecommendations from "../../components/AIRecommendations";
+import FilterDropdown from "@/components/search/FilterDropdown";
+import AIRecommendations from "@/components/ai/AIRecommendations";
 import { AIService } from "@/lib/ai-services";
-import SearchToast from "../../components/SearchToast";
+import SearchToast from "@/components/search/SearchToast";
  
 
 export default async function Home({searchParams}:{

@@ -1,6 +1,6 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
-import MyBadges from "@/components/MyBadges";
+import MyBadges from "@/components/badges/MyBadges";
 
 export default async function MyBadgesPage() {
   const session = await auth();

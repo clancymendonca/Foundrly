@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import MessagesScreen from "@/components/MessagesScreen";
+import MessagesScreen from "@/components/chat/MessagesScreen";
 import ChatView from "@/components/chat/ChatView";
 
 export default function MessagesPage() {

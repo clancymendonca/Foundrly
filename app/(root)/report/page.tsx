@@ -1,7 +1,7 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
-import UserSidebarWrapper from "@/components/UserSidebarWrapper";
-import ReportFeedbackButton from "@/components/ReportFeedbackButton";
+import UserSidebarWrapper from "@/components/layout/UserSidebarWrapper";
+import ReportFeedbackButton from "@/components/reports/ReportFeedbackButton";
 
 export default async function ReportPage() {
   const session = await auth();

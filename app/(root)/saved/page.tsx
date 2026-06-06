@@ -2,10 +2,10 @@
 
 import { useState } from 'react';
 import { useSession } from 'next-auth/react';
-import SavedSidebar from "@/components/SavedSidebar";
-import SavedMainContent from "@/components/SavedMainContent";
-import UserSidebarWrapper from "@/components/UserSidebarWrapper";
-import MobilePageHeader from "@/components/MobilePageHeader";
+import SavedSidebar from "@/components/saved/SavedSidebar";
+import SavedMainContent from "@/components/saved/SavedMainContent";
+import UserSidebarWrapper from "@/components/layout/UserSidebarWrapper";
+import MobilePageHeader from "@/components/layout/MobilePageHeader";
 
 export default function SavedPage() {
   const { data: session } = useSession();

@@ -2,10 +2,10 @@
 
 import { useState } from 'react';
 import { useSession } from 'next-auth/react';
-import InterestedSidebar from "@/components/InterestedSidebar";
-import InterestedMainContent from "@/components/InterestedMainContent";
-import UserSidebarWrapper from "@/components/UserSidebarWrapper";
-import MobilePageHeader from "@/components/MobilePageHeader";
+import InterestedSidebar from "@/components/interested/InterestedSidebar";
+import InterestedMainContent from "@/components/interested/InterestedMainContent";
+import UserSidebarWrapper from "@/components/layout/UserSidebarWrapper";
+import MobilePageHeader from "@/components/layout/MobilePageHeader";
 
 export default function InterestedPage() {
   const { data: session } = useSession();

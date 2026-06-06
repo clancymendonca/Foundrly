@@ -1,8 +1,8 @@
 import { auth } from "@/auth";
 import { client } from "@/sanity/lib/client";
 import { notFound } from "next/navigation";
-import MyBadges from "@/components/MyBadges";
-import AllBadges from "@/components/AllBadges";
+import MyBadges from "@/components/badges/MyBadges";
+import AllBadges from "@/components/badges/AllBadges";
 import Link from "next/link";
 
 interface PageProps {

@@ -4,7 +4,7 @@ import { useSession } from "next-auth/react";
 import { Bell, BellOff } from "lucide-react";
 import { ChatBanMessage } from "./BanMessage";
 import { moderateContent } from "@/lib/stream-chat-moderation";
-import { useStreamChatPushNotifications } from "@/hooks/useStreamChatPushNotifications";
+import { useStreamChatPushNotifications } from "@/hooks/notifications/useStreamChatPushNotifications";
 
 const BackArrowIcon = () => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>

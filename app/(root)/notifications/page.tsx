@@ -44,7 +44,7 @@ interface Notification {
     actionTaken?: string;
   };
 }
-import { useNotifications } from '@/hooks/useNotifications';
+import { useNotifications } from '@/hooks/notifications/useNotifications';
 
 const NotificationsPage = () => {
   const { data: session } = useSession();

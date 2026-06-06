@@ -4,9 +4,9 @@ import "./globals.css";
 import 'easymde/dist/easymde.min.css';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as SonnerToaster } from "sonner";
-import Providers from "@/components/Providers";
-import NotificationPermissionPrompt from "@/components/NotificationPermissionPrompt";
-import IOSInstallPrompt from "@/components/IOSInstallPrompt";
+import Providers from "@/components/layout/Providers";
+import NotificationPermissionPrompt from "@/components/notifications/NotificationPermissionPrompt";
+import IOSInstallPrompt from "@/components/notifications/IOSInstallPrompt";
 
 const workSans = localFont({
   src: [ 

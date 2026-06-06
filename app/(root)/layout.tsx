@@ -1,7 +1,7 @@
-import Navbar from '../../components/Navbar'
-import MobileBottomNav from '../../components/MobileBottomNav'
-import { ThemeProvider } from '../../components/ThemeProvider'
-import NotificationPermissionPrompt from '../../components/NotificationPermissionPrompt'
+import Navbar from '@/components/layout/Navbar'
+import MobileBottomNav from '@/components/layout/MobileBottomNav'
+import { ThemeProvider } from '@/components/layout/ThemeProvider'
+import NotificationPermissionPrompt from '@/components/notifications/NotificationPermissionPrompt'
 
 export default function Layout({children}:Readonly<{children:React.ReactNode}>) { 
     return (

@@ -2,10 +2,10 @@
 
 import { useState } from 'react';
 import { useSession } from 'next-auth/react';
-import ActivitySidebar from "@/components/ActivitySidebar";
-import ActivityMainContent from "@/components/ActivityMainContent";
-import UserSidebarWrapper from "@/components/UserSidebarWrapper";
-import MobilePageHeader from "@/components/MobilePageHeader";
+import ActivitySidebar from "@/components/activity/ActivitySidebar";
+import ActivityMainContent from "@/components/activity/ActivityMainContent";
+import UserSidebarWrapper from "@/components/layout/UserSidebarWrapper";
+import MobilePageHeader from "@/components/layout/MobilePageHeader";
 import Link from 'next/link';
 import { RotateCcw, Calendar, Megaphone } from 'lucide-react';
 

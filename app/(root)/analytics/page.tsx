@@ -1,8 +1,8 @@
 import { Suspense } from 'react';
 import Link from 'next/link';
 import { BarChart3, Users } from 'lucide-react';
-import AnalyticsPageClient from '@/components/AnalyticsPageClient';
-import MobilePageHeader from '@/components/MobilePageHeader';
+import AnalyticsPageClient from '@/components/analytics/AnalyticsPageClient';
+import MobilePageHeader from '@/components/layout/MobilePageHeader';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;

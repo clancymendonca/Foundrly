@@ -12,14 +12,14 @@ import { auth } from "@/auth";
 
 import markdownit from "markdown-it";
 import { Skeleton } from "@/components/ui/skeleton";
-import View from "@/components/View";
-import StartupCard, { StartupTypeCard } from "@/components/StartupCard";
-import StartupDetailActions from "@/components/StartupDetailActions";
-import StartupDetailLikes from "@/components/StartupDetailLikes";
-import CommentList from "@/components/CommentList";
-import CommentForm from "@/components/CommentForm";
-import CommentsSection from "@/components/CommentsSection";
-import BuyMeACoffeeButton from "@/components/BuyMeACoffeeButton";
+import View from "@/components/shared/View";
+import StartupCard, { StartupTypeCard } from "@/components/startup/StartupCard";
+import StartupDetailActions from "@/components/startup/StartupDetailActions";
+import StartupDetailLikes from "@/components/startup/StartupDetailLikes";
+import CommentList from "@/components/comments/CommentList";
+import CommentForm from "@/components/comments/CommentForm";
+import CommentsSection from "@/components/comments/CommentsSection";
+import BuyMeACoffeeButton from "@/components/donate/BuyMeACoffeeButton";
 
 const md = markdownit();
 
