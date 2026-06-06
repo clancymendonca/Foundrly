@@ -1,3 +1,5 @@
+import { redirect } from 'next/navigation';
+import { getAdminSession } from '@/lib/admin-auth';
 import { client } from '@/sanity/lib/client';
 import { InterestedSubmission } from '@/sanity/types';
 import InterestedSubmissionsManager from './InterestedSubmissionsManager';
@@ -46,11 +48,16 @@ async function getInterestedSubmissions(): Promise<InterestedSubmission[]> {
       submittedAt
     }
   `);
-  
+
   return submissions;
 }
 
 export default async function InterestedSubmissionsPage() {
+  const session = await getAdminSession();
+  if (!session) {
+    redirect('/api/auth/signin?callbackUrl=/admin/interested-submissions');
+  }
+
   const submissions = await getInterestedSubmissions();
 
   return (

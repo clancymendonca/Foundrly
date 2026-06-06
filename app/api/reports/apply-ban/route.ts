@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/auth'
+import { getAdminSession } from '@/lib/admin-auth'
 import { client } from '@/sanity/lib/client'
 import { writeClient } from '@/sanity/lib/write-client'
 import { calculateBanEndDate } from '@/sanity/lib/moderation'
@@ -12,9 +12,9 @@ import { logModerationActivity } from '@/sanity/lib/moderation-mutations'
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth()
-    
-    if (!session?.user?.email) {
+    const session = await getAdminSession()
+
+    if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -114,7 +114,8 @@ export async function POST(request: NextRequest) {
       reason: reason,
       severity: strikeResult.isPermanent ? 'critical' : 'high',
       itemId: reportId,
-      itemType: 'report'
+      itemType: 'report',
+      source: 'studio',
     })
 
     return NextResponse.json({
