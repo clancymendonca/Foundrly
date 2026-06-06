@@ -2479,37 +2479,27 @@ Format as JSON with fields: score, strengths, weaknesses, suggestions, marketIns
     }
   }
 
-  // Moderate content using AI
+  // Moderate content using the unified moderation service
   async moderateContent(content: string): Promise<any> {
     try {
-      const prompt = `Analyze this content for moderation purposes:
+      const { moderateContentAsync } = await import('./moderation-service');
+      const result = await moderateContentAsync(content);
 
-Content: ${content}
-
-Please provide:
-1. Severity level (low, medium, high)
-2. Issues found (list of specific problems)
-3. Recommendation (approve, review, reject)
-4. Confidence level (0-1)
-5. Explanation of the decision
-
-Format as JSON with fields: severity, issues, recommendation, confidence, explanation.`;
-
-      const moderation = await this.generateText(prompt, 500);
-      
-      try {
-        const parsedModeration = JSON.parse(moderation);
-        return parsedModeration;
-      } catch (parseError) {
-        // Fallback response
-        return {
-          severity: 'low',
-          issues: [],
-          recommendation: 'approve',
-          confidence: 0.8,
-          explanation: 'Content appears appropriate'
-        };
-      }
+      return {
+        isFlagged: result.isFlagged,
+        severity: result.severity,
+        action: result.action,
+        reason: result.reason,
+        patterns: result.patterns,
+        confidence: result.confidence,
+        primaryCategory: result.primaryCategory,
+        recommendation: result.isFlagged ? result.action : 'approve',
+        issues: result.patterns,
+        explanation: result.reason,
+        source: result.source,
+        model: result.model,
+        latencyMs: result.latencyMs,
+      };
     } catch (error) {
       console.error('Error moderating content:', error);
       throw new Error('Content moderation failed');

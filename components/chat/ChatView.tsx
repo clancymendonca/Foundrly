@@ -3,7 +3,6 @@ import { StreamChat } from "stream-chat";
 import { useSession } from "next-auth/react";
 import { Bell, BellOff } from "lucide-react";
 import { ChatBanMessage } from "./BanMessage";
-import { moderateContent } from "@/lib/stream-chat-moderation";
 import { useStreamChatPushNotifications } from "@/hooks/notifications/useStreamChatPushNotifications";
 
 const BackArrowIcon = () => (
@@ -65,6 +64,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, onGoBack, currentUserId }) 
   const [activeReactionMessageId, setActiveReactionMessageId] = useState<string | null>(null);
   const [isBanned, setIsBanned] = useState(false);
   const [banDescription, setBanDescription] = useState("");
+  const [isCheckingModeration, setIsCheckingModeration] = useState(false);
   const chatBodyRef = useRef<HTMLDivElement>(null);
   
   // Initialize Stream Chat push notifications
@@ -195,17 +195,31 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, onGoBack, currentUserId }) 
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || !channel) return;
-    
-    // Check content before sending
-    const moderationResult = moderateContent(input);
-    
-    if (moderationResult.isFlagged) {
-      // Show warning to user
-      alert(`⚠️ Warning: ${moderationResult.reason}\n\nYour message contains content that may violate our community guidelines. Please review and edit your message.`);
-      return;
+    if (!input.trim() || !channel || isCheckingModeration) return;
+
+    setIsCheckingModeration(true);
+    try {
+      const response = await fetch('/api/moderation/check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: input }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const moderationResult = data.result;
+
+        if (moderationResult?.isFlagged) {
+          alert(`⚠️ Warning: ${moderationResult.reason}\n\nYour message contains content that may violate our community guidelines. Please review and edit your message.`);
+          return;
+        }
+      }
+    } catch (error) {
+      console.error('Moderation check failed:', error);
+    } finally {
+      setIsCheckingModeration(false);
     }
-    
+
     await channel.sendMessage({ text: input });
     setInput("");
   };
