@@ -64,7 +64,7 @@ jobs:
           npx next start -p 3000 &
           echo "Waiting for server on :3000..."
           for i in $(seq 1 45); do
-            if curl -sf http://localhost:3000/api/auth/session >/dev/null 2>&1; then
+            if curl -sf http://localhost:3000/api/health >/dev/null 2>&1; then
               echo "Server ready after ${i} attempt(s)"
               break
             fi

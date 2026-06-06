@@ -11,6 +11,7 @@ import {
   ConfirmDialog,
   formatTimeAgo,
   reportTypeTone,
+  handleKeyboardActivate,
 } from './shared'
 
 /**
@@ -265,8 +266,14 @@ export const ReportReviewPanel = () => {
                     radius={2}
                     shadow={1}
                     tone={selectedId === report._id ? 'primary' : 'default'}
+                    role="button"
+                    tabIndex={0}
+                    aria-selected={selectedId === report._id}
                     style={{ cursor: 'pointer' }}
                     onClick={() => setSelectedId(report._id)}
+                    onKeyDown={(event) =>
+                      handleKeyboardActivate(event, () => setSelectedId(report._id))
+                    }
                   >
                     <Stack space={2}>
                       <Flex gap={2} align="center" wrap="wrap">

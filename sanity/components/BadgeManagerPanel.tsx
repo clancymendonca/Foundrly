@@ -11,6 +11,7 @@ import {
   SectionCard,
   ConfirmDialog,
   formatTimeAgo,
+  handleKeyboardActivate,
 } from './shared'
 
 interface BadgeDoc {
@@ -210,12 +211,21 @@ export const BadgeManagerPanel = () => {
                       key={a._id}
                       padding={3}
                       radius={2}
+                      role="button"
+                      tabIndex={0}
                       style={{ cursor: 'pointer' }}
                       onClick={() => {
                         setSelectedAuthorId(a._id)
                         setAuthorSearch(a.name || a.username || a._id)
                         setAuthorResults([])
                       }}
+                      onKeyDown={(event) =>
+                        handleKeyboardActivate(event, () => {
+                          setSelectedAuthorId(a._id)
+                          setAuthorSearch(a.name || a.username || a._id)
+                          setAuthorResults([])
+                        })
+                      }
                     >
                       <Text size={1}>{a.name || a.username || a._id}</Text>
                     </Card>

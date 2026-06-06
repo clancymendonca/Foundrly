@@ -5,6 +5,7 @@
 
 const BASE = process.argv.find((arg) => arg.startsWith('http')) || 'http://localhost:3000'
 const CI_MODE = process.argv.includes('--ci') || process.env.CI === 'true'
+const REQUEST_TIMEOUT_MS = 15_000
 
 const results = []
 
@@ -51,6 +52,7 @@ async function fetchJson(path, options = {}) {
     ...options,
     headers: { 'Content-Type': 'application/json', ...options.headers },
     redirect: 'manual',
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   })
   let body = null
   const text = await res.text()
@@ -81,7 +83,10 @@ async function testStudioRoutes() {
 
   for (const route of routes) {
     try {
-      const res = await fetch(`${BASE}${route}`, { redirect: 'manual' })
+      const res = await fetch(`${BASE}${route}`, {
+        redirect: 'manual',
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      })
       // 200 = loaded, 307/302 = auth redirect (middleware working)
       if (res.status === 200) {
         pass(`Route ${route}`, `HTTP ${res.status}`)
@@ -110,7 +115,11 @@ async function testModerationApi() {
   })
   if (clean.status === 200 && clean.body?.result) {
     const flagged = clean.body.result.isFlagged
-    pass('Moderation test (clean)', flagged ? `unexpectedly flagged: ${clean.body.result.action}` : `allow (${clean.body.source}, ${clean.body.latencyMs}ms)`)
+    if (flagged) {
+      fail('Moderation test (clean)', `unexpectedly flagged: ${clean.body.result.action}`)
+    } else {
+      pass('Moderation test (clean)', `allow (${clean.body.source}, ${clean.body.latencyMs}ms)`)
+    }
   } else {
     fail('Moderation test (clean)', `HTTP ${clean.status}: ${JSON.stringify(clean.body)?.slice(0, 120)}`)
   }
@@ -232,7 +241,10 @@ async function main() {
   console.log(`\nSanity Studio E2E Test — ${BASE}${CI_MODE ? ' (CI mode)' : ''}\n${'='.repeat(50)}\n`)
 
   try {
-    await fetch(`${BASE}/`, { method: 'HEAD' })
+    await fetch(`${BASE}/`, {
+      method: 'HEAD',
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    })
   } catch (err) {
     console.error(`Cannot reach ${BASE}. Is npm run dev running?\n`)
     process.exit(1)

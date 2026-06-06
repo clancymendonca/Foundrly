@@ -48,23 +48,31 @@ function getSinceDate(range: DateRange): string | undefined {
   return new Date(Date.now() - hours * 60 * 60 * 1000).toISOString()
 }
 
+function sanitizeCsvCell(value: string): string {
+  let cell = value.replace(/"/g, '""')
+  if (/^[=+\-@]/.test(cell)) {
+    cell = `'${cell}`
+  }
+  return `"${cell}"`
+}
+
 /**
  * Export the provided moderation activities as a CSV file and initiate download with a date-stamped filename.
  *
- * The CSV contains the columns: Timestamp, Type, User, Reason, Severity, Item Type, Item ID. Double quotes inside reason fields are escaped by doubling them.
+ * All cells are quoted and sanitized to prevent formula injection in spreadsheet apps.
  *
  * @param activities - Array of moderation activity objects to include in the exported CSV
  */
 function exportToCsv(activities: ModerationActivity[]) {
   const headers = ['Timestamp', 'Type', 'User', 'Reason', 'Severity', 'Item Type', 'Item ID']
   const rows = activities.map((a) => [
-    a.timestamp,
-    a.type,
-    a.userName,
-    `"${a.reason.replace(/"/g, '""')}"`,
-    a.severity,
-    a.itemType ?? '',
-    a.itemId ?? '',
+    sanitizeCsvCell(a.timestamp),
+    sanitizeCsvCell(a.type),
+    sanitizeCsvCell(a.userName),
+    sanitizeCsvCell(a.reason),
+    sanitizeCsvCell(a.severity),
+    sanitizeCsvCell(a.itemType ?? ''),
+    sanitizeCsvCell(a.itemId ?? ''),
   ])
   const csv = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n')
   const blob = new Blob([csv], { type: 'text/csv' })

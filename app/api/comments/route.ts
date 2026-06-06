@@ -408,6 +408,15 @@ export async function PATCH(req: Request) {
     if (!comment || comment.author?._id !== session.user.id) {
       return NextResponse.json({ success: false, message: 'Forbidden' }, { status: 403 });
     }
+    const moderation = await checkUserContentModeration(text, {
+      userId: session.user.id,
+      userName: session.user.name || session.user.username || 'Unknown User',
+      itemType: 'comment',
+      itemId: commentId,
+    });
+    if (!moderation.allowed) {
+      return NextResponse.json({ success: false, message: moderation.message }, { status: 403 });
+    }
     await writeClient.patch(commentId).set({ text }).commit();
     return NextResponse.json({ success: true });
   } catch (error) {

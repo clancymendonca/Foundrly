@@ -5,7 +5,12 @@ import { writeClient } from '@/sanity/lib/write-client'
 import { moderateContentAsync, verifyWebhookSignature } from '@/lib/stream-chat-moderation'
 import type { ModerationResultWithMeta } from '@/lib/moderation-service'
 import { getModerationSettings } from '@/sanity/lib/moderation-queries'
-import { createBanHistoryEntry, calculateStrikeBan, getCurrentStrikeCount } from '@/sanity/lib/strike-system'
+import {
+  createBanHistoryEntry,
+  calculateStrikeBan,
+  getCurrentStrikeCount,
+  type BanHistoryEntry,
+} from '@/sanity/lib/strike-system'
 import { calculateBanEndDate } from '@/sanity/lib/moderation'
 import { logModerationActivity } from '@/sanity/lib/moderation-mutations'
 import type { ModerationSettings } from '@/sanity/lib/moderation-queries'
@@ -38,8 +43,7 @@ function activityMeta(result: ModerationResultWithMeta) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    const payload = JSON.stringify(body)
+    const payload = await request.text()
 
     const signature = request.headers.get('x-signature')
     if (!signature || !webhookSecret) {
@@ -50,6 +54,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
     }
 
+    const body = JSON.parse(payload)
     const { type, channel_id, message, user_id } = body
 
     if (type !== 'message.new') {
@@ -133,25 +138,21 @@ async function handleMessageDeletion(
   moderationResult: ModerationResultWithMeta,
   user: { _id: string; name?: string; username?: string }
 ) {
-  try {
-    await channel.deleteMessage(messageId, {
-      hard: true,
-      user_id: 'system',
-    })
+  await channel.deleteMessage(messageId, {
+    hard: true,
+    user_id: 'system',
+  })
 
-    await logModerationActivity({
-      type: 'message_deleted',
-      userId: user._id,
-      userName: user.name || user.username || 'Unknown User',
-      reason: moderationResult.reason,
-      severity: moderationResult.severity as 'low' | 'medium' | 'high' | 'critical',
-      itemId: messageId,
-      itemType: 'message',
-      ...activityMeta(moderationResult),
-    })
-  } catch (error) {
-    console.error('Error deleting message:', error)
-  }
+  await logModerationActivity({
+    type: 'message_deleted',
+    userId: user._id,
+    userName: user.name || user.username || 'Unknown User',
+    reason: moderationResult.reason,
+    severity: moderationResult.severity as 'low' | 'medium' | 'high' | 'critical',
+    itemId: messageId,
+    itemType: 'message',
+    ...activityMeta(moderationResult),
+  })
 }
 
 /**
@@ -169,84 +170,97 @@ async function handleUserBan(
     _id: string
     name?: string
     username?: string
-    banHistory?: unknown[]
+    banHistory?: BanHistoryEntry[]
     strikeCount?: number
   },
   moderationResult: ModerationResultWithMeta,
   messageId: string,
   settings: ModerationSettings | null
 ) {
-  try {
-    if (settings && !settings.autoBan.enabled) {
-      await logModerationActivity({
-        type: 'warning_sent',
-        userId: user._id,
-        userName: user.name || user.username || 'Unknown User',
-        reason: `Ban skipped (auto-ban disabled): ${moderationResult.reason}`,
-        severity: moderationResult.severity as 'low' | 'medium' | 'high' | 'critical',
-        itemId: messageId,
-        itemType: 'message',
-        ...activityMeta(moderationResult),
-      })
-      return
-    }
+  if (settings && !settings.autoBan.enabled) {
+    await logModerationActivity({
+      type: 'warning_sent',
+      userId: user._id,
+      userName: user.name || user.username || 'Unknown User',
+      reason: `Ban skipped (auto-ban disabled): ${moderationResult.reason}`,
+      severity: moderationResult.severity as 'low' | 'medium' | 'high' | 'critical',
+      itemId: messageId,
+      itemType: 'message',
+      ...activityMeta(moderationResult),
+    })
+    return
+  }
 
-    const currentStrikes = getCurrentStrikeCount(user.banHistory || [])
-    const strikeThreshold = settings?.autoBan.strikeThreshold ?? 2
+  const currentStrikes = getCurrentStrikeCount(user.banHistory || [])
+  const strikeThreshold = settings?.autoBan.strikeThreshold ?? 2
+  const strikeDuration = settings?.autoBan.duration ?? '24h'
 
-    if (currentStrikes + 1 < strikeThreshold && moderationResult.severity !== 'critical') {
-      await logModerationActivity({
-        type: 'warning_sent',
-        userId: user._id,
-        userName: user.name || user.username || 'Unknown User',
-        reason: `Strike ${currentStrikes + 1}/${strikeThreshold}: ${moderationResult.reason}`,
-        severity: 'high',
-        itemId: messageId,
-        itemType: 'message',
-        ...activityMeta(moderationResult),
-      })
-      return
-    }
-
-    const banDuration =
-      moderationResult.severity === 'critical'
-        ? 'perm'
-        : (settings?.autoBan.duration ?? '24h')
-    const strikeResult = calculateStrikeBan(currentStrikes, banDuration)
-    const banEndDate = strikeResult.isPermanent
-      ? null
-      : calculateBanEndDate(strikeResult.banDuration as '1h' | '24h' | '7d' | '365d' | 'perm')
-
-    const banHistoryEntry = createBanHistoryEntry(
-      strikeResult.banDuration,
-      `Auto-moderation: ${moderationResult.reason}`,
+  if (currentStrikes + 1 < strikeThreshold && moderationResult.severity !== 'critical') {
+    const strikeNumber = currentStrikes + 1
+    const warningEntry = createBanHistoryEntry(
+      strikeDuration,
+      `Strike ${strikeNumber}/${strikeThreshold}: ${moderationResult.reason}`,
       undefined,
-      strikeResult.strikeNumber
+      strikeNumber
     )
 
     await writeClient
       .patch(user._id)
       .set({
-        isBanned: true,
-        bannedUntil: banEndDate ? banEndDate.toISOString() : null,
-        strikeCount: strikeResult.strikeNumber,
-        banHistory: [...(user.banHistory || []), banHistoryEntry],
+        strikeCount: strikeNumber,
+        banHistory: [...(user.banHistory || []), warningEntry],
       })
       .commit()
 
     await logModerationActivity({
-      type: 'user_banned',
+      type: 'warning_sent',
       userId: user._id,
       userName: user.name || user.username || 'Unknown User',
-      reason: `Auto-moderation: ${moderationResult.reason}`,
-      severity: strikeResult.isPermanent ? 'critical' : 'high',
+      reason: `Strike ${strikeNumber}/${strikeThreshold}: ${moderationResult.reason}`,
+      severity: 'high',
       itemId: messageId,
       itemType: 'message',
       ...activityMeta(moderationResult),
     })
-  } catch (error) {
-    console.error('Error banning user:', error)
+    return
   }
+
+  const banDuration =
+    moderationResult.severity === 'critical'
+      ? 'perm'
+      : strikeDuration
+  const strikeResult = calculateStrikeBan(currentStrikes, banDuration)
+  const banEndDate = strikeResult.isPermanent
+    ? null
+    : calculateBanEndDate(strikeResult.banDuration as '1h' | '24h' | '7d' | '365d' | 'perm')
+
+  const banHistoryEntry = createBanHistoryEntry(
+    strikeResult.banDuration,
+    `Auto-moderation: ${moderationResult.reason}`,
+    undefined,
+    strikeResult.strikeNumber
+  )
+
+  await writeClient
+    .patch(user._id)
+    .set({
+      isBanned: true,
+      bannedUntil: banEndDate ? banEndDate.toISOString() : null,
+      strikeCount: strikeResult.strikeNumber,
+      banHistory: [...(user.banHistory || []), banHistoryEntry],
+    })
+    .commit()
+
+  await logModerationActivity({
+    type: 'user_banned',
+    userId: user._id,
+    userName: user.name || user.username || 'Unknown User',
+    reason: `Auto-moderation: ${moderationResult.reason}`,
+    severity: strikeResult.isPermanent ? 'critical' : 'high',
+    itemId: messageId,
+    itemType: 'message',
+    ...activityMeta(moderationResult),
+  })
 }
 
 /**
@@ -267,37 +281,33 @@ async function createModerationReport(
   message: { id: string; text: string },
   channelId: string
 ) {
-  try {
-    const report = await writeClient.create({
-      _type: 'report',
-      reportedType: 'user',
-      reportedRef: {
-        _type: 'reference',
-        _ref: user._id,
-      },
-      reason: `Auto-moderation: ${moderationResult.reason}\n\nDetected patterns: ${moderationResult.patterns.join(', ')}\nConfidence: ${Math.round(moderationResult.confidence * 100)}%\nSource: ${moderationResult.source}${moderationResult.model ? `\nModel: ${moderationResult.model}` : ''}\n\nMessage: "${message.text}"`,
-      reportedBy: {
-        _type: 'reference',
-        _ref: 'system',
-      },
-      timestamp: new Date().toISOString(),
-      status: 'pending',
-      adminNotes: `Auto-generated report from Stream Chat moderation.\nSeverity: ${moderationResult.severity}\nChannel: ${channelId}\nMessage ID: ${message.id}`,
-    })
+  const report = await writeClient.create({
+    _type: 'report',
+    reportedType: 'user',
+    reportedRef: {
+      _type: 'reference',
+      _ref: user._id,
+    },
+    reason: `Auto-moderation: ${moderationResult.reason}\n\nDetected patterns: ${moderationResult.patterns.join(', ')}\nConfidence: ${Math.round(moderationResult.confidence * 100)}%\nSource: ${moderationResult.source}${moderationResult.model ? `\nModel: ${moderationResult.model}` : ''}\n\nMessage: "${message.text}"`,
+    reportedBy: {
+      _type: 'reference',
+      _ref: 'system',
+    },
+    timestamp: new Date().toISOString(),
+    status: 'pending',
+    adminNotes: `Auto-generated report from Stream Chat moderation.\nSeverity: ${moderationResult.severity}\nChannel: ${channelId}\nMessage ID: ${message.id}`,
+  })
 
-    await logModerationActivity({
-      type: 'report_created',
-      userId: user._id,
-      userName: user.name || user.username || 'Unknown User',
-      reason: `Auto-moderation: ${moderationResult.reason}`,
-      severity: moderationResult.severity as 'low' | 'medium' | 'high' | 'critical',
-      itemId: report._id,
-      itemType: 'report',
-      ...activityMeta(moderationResult),
-    })
-  } catch (error) {
-    console.error('Error creating moderation report:', error)
-  }
+  await logModerationActivity({
+    type: 'report_created',
+    userId: user._id,
+    userName: user.name || user.username || 'Unknown User',
+    reason: `Auto-moderation: ${moderationResult.reason}`,
+    severity: moderationResult.severity as 'low' | 'medium' | 'high' | 'critical',
+    itemId: report._id,
+    itemType: 'report',
+    ...activityMeta(moderationResult),
+  })
 }
 
 /**
@@ -314,24 +324,20 @@ async function handleUserWarning(
   moderationResult: ModerationResultWithMeta,
   channelId: string
 ) {
-  try {
-    await channel.sendMessage({
-      text: `⚠️ Warning: ${moderationResult.reason}. Please be respectful in this chat.`,
-      user_id: 'system',
-      type: 'system',
-    })
+  await channel.sendMessage({
+    text: `⚠️ Warning: ${moderationResult.reason}. Please be respectful in this chat.`,
+    user_id: 'system',
+    type: 'system',
+  })
 
-    await logModerationActivity({
-      type: 'warning_sent',
-      userId: user._id,
-      userName: user.name || user.username || 'Unknown User',
-      reason: `Auto-moderation: ${moderationResult.reason}`,
-      severity: moderationResult.severity as 'low' | 'medium' | 'high' | 'critical',
-      itemId: channelId,
-      itemType: 'channel',
-      ...activityMeta(moderationResult),
-    })
-  } catch (error) {
-    console.error('Error sending warning:', error)
-  }
+  await logModerationActivity({
+    type: 'warning_sent',
+    userId: user._id,
+    userName: user.name || user.username || 'Unknown User',
+    reason: `Auto-moderation: ${moderationResult.reason}`,
+    severity: moderationResult.severity as 'low' | 'medium' | 'high' | 'critical',
+    itemId: channelId,
+    itemType: 'channel',
+    ...activityMeta(moderationResult),
+  })
 }

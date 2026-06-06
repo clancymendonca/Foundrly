@@ -205,17 +205,22 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, onGoBack, currentUserId }) 
         body: JSON.stringify({ content: input }),
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        const moderationResult = data.result;
+      if (!response.ok) {
+        alert('Unable to verify message content right now. Please try again in a moment.');
+        return;
+      }
 
-        if (moderationResult?.isFlagged) {
-          alert(`⚠️ Warning: ${moderationResult.reason}\n\nYour message contains content that may violate our community guidelines. Please review and edit your message.`);
-          return;
-        }
+      const data = await response.json();
+      const moderationResult = data.result;
+
+      if (moderationResult?.isFlagged) {
+        alert(`⚠️ Warning: ${moderationResult.reason}\n\nYour message contains content that may violate our community guidelines. Please review and edit your message.`);
+        return;
       }
     } catch (error) {
       console.error('Moderation check failed:', error);
+      alert('Unable to verify message content right now. Please try again in a moment.');
+      return;
     } finally {
       setIsCheckingModeration(false);
     }
