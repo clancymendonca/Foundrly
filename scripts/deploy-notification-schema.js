@@ -50,4 +50,4 @@ try {
   console.error('   - Logged in to Sanity CLI (sanity login)');
   console.error('   - Proper permissions for your Sanity project');
   process.exit(1);
-} 
+}
