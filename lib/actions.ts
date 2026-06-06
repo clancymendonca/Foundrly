@@ -6,6 +6,7 @@ import slugify from "slugify";
 import { writeClient } from "@/sanity/lib/write-client";
 import { canUserPerformAction } from "@/lib/ban-checks";
 import { syncStartupVector } from "@/lib/ai-vector-sync";
+import { checkUserContentModeration } from "@/lib/content-moderation-guard";
 
 export const createPitch = async (
   state: any,
@@ -34,6 +35,19 @@ export const createPitch = async (
   );
 
   const slug = slugify(title as string, { lower: true, strict: true });
+
+  const contentToModerate = [title, description, pitch].filter(Boolean).join('\n\n');
+  const moderation = await checkUserContentModeration(contentToModerate, {
+    userId: session.user.id,
+    userName: session.user.name || session.user.username || 'Unknown User',
+    itemType: 'startup',
+  });
+  if (!moderation.allowed) {
+    return parseServerActionResponse({
+      error: moderation.message,
+      status: "ERROR",
+    });
+  }
 
   try {
     const startup = {

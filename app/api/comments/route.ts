@@ -5,6 +5,7 @@ import { auth } from '@/auth';
 import { v4 as uuidv4 } from 'uuid';
 import { createCommentNotification, createReplyNotification } from '@/sanity/lib/notifications';
 import { ServerPushNotificationService } from '@/lib/notifications/serverPushNotifications';
+import { checkUserContentModeration } from '@/lib/content-moderation-guard';
 
 // GET: Fetch comments for a startup (PUBLIC - no auth required)
 export async function GET(req: Request) {
@@ -95,6 +96,16 @@ export async function POST(req: Request) {
       if (!text || !startupId || !parentId) {
         return NextResponse.json({ success: false, message: 'Missing fields' }, { status: 400 });
       }
+
+      const moderation = await checkUserContentModeration(text, {
+        userId: session.user.id,
+        userName: session.user.name || session.user.username || 'Unknown User',
+        itemType: 'comment',
+      });
+      if (!moderation.allowed) {
+        return NextResponse.json({ success: false, message: moderation.message }, { status: 403 });
+      }
+
       const reply = await writeClient.create({
         _type: 'comment',
         text,
@@ -264,6 +275,16 @@ export async function POST(req: Request) {
       if (!text || !startupId) {
         return NextResponse.json({ success: false, message: 'Missing fields' }, { status: 400 });
       }
+
+      const moderation = await checkUserContentModeration(text, {
+        userId: session.user.id,
+        userName: session.user.name || session.user.username || 'Unknown User',
+        itemType: 'comment',
+      });
+      if (!moderation.allowed) {
+        return NextResponse.json({ success: false, message: moderation.message }, { status: 403 });
+      }
+
       const comment = await writeClient.create({
         _type: 'comment',
         text,
