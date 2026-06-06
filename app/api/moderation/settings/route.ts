@@ -1,21 +1,23 @@
 import { NextResponse } from 'next/server'
 import { getModerationSettings } from '@/sanity/lib/moderation-queries'
 import { saveModerationSettings } from '@/sanity/lib/moderation-mutations'
+import type { ModerationSettings } from '@/sanity/lib/moderation-queries'
 import { auth } from '@/auth'
 
 export async function GET() {
   try {
     const settings = await getModerationSettings()
-    
+
     return NextResponse.json({
       success: true,
-      settings
+      settings,
     })
   } catch (error) {
     console.error('Error fetching moderation settings:', error)
-    return NextResponse.json({ 
-      error: 'Failed to fetch moderation settings' 
-    }, { status: 500 })
+    return NextResponse.json(
+      { error: 'Failed to fetch moderation settings' },
+      { status: 500 }
+    )
   }
 }
 
@@ -26,91 +28,113 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Admin access is handled through Sanity Studio
-    // This endpoint is for programmatic access only
-
     const body = await request.json()
     const { settings } = body
 
     if (!settings) {
-      return NextResponse.json({ 
-        error: 'Settings object is required' 
-      }, { status: 400 })
+      return NextResponse.json(
+        { error: 'Settings object is required' },
+        { status: 400 }
+      )
     }
 
-    // Validate settings
     const validationErrors = validateModerationSettings(settings)
     if (validationErrors.length > 0) {
-      return NextResponse.json({ 
-        error: 'Invalid settings',
-        details: validationErrors
-      }, { status: 400 })
+      return NextResponse.json(
+        { error: 'Invalid settings', details: validationErrors },
+        { status: 400 }
+      )
     }
 
-    const savedSettings = await saveModerationSettings(settings)
-    
+    const saved = await saveModerationSettings(settings)
+
     return NextResponse.json({
-      success: true,
-      settings: savedSettings,
-      message: 'Moderation settings updated successfully'
+      success: saved,
+      settings,
+      message: 'Moderation settings updated successfully',
     })
   } catch (error) {
     console.error('Error updating moderation settings:', error)
-    return NextResponse.json({ 
-      error: 'Failed to update moderation settings' 
-    }, { status: 500 })
+    return NextResponse.json(
+      { error: 'Failed to update moderation settings' },
+      { status: 500 }
+    )
   }
 }
 
-function validateModerationSettings(settings: any): string[] {
+const VALID_ACTIONS = ['warn', 'delete', 'ban', 'report'] as const
+const VALID_SEVERITIES = ['low', 'medium', 'high', 'critical'] as const
+const VALID_DURATIONS = ['1h', '24h', '7d', '365d', 'perm'] as const
+
+function validateModerationSettings(settings: Partial<ModerationSettings>): string[] {
   const errors: string[] = []
 
-  // Check required fields
-  if (typeof settings.autoModerationEnabled !== 'boolean') {
-    errors.push('autoModerationEnabled must be a boolean')
+  if (typeof settings.enabled !== 'boolean') {
+    errors.push('enabled must be a boolean')
   }
 
-  if (typeof settings.profanityCheckEnabled !== 'boolean') {
-    errors.push('profanityCheckEnabled must be a boolean')
+  if (!settings.severity || !VALID_SEVERITIES.includes(settings.severity)) {
+    errors.push('severity must be one of: low, medium, high, critical')
   }
 
-  if (typeof settings.hateSpeechCheckEnabled !== 'boolean') {
-    errors.push('hateSpeechCheckEnabled must be a boolean')
+  if (!settings.actions || typeof settings.actions !== 'object') {
+    errors.push('actions object is required')
+  } else {
+    for (const key of [
+      'profanity',
+      'hateSpeech',
+      'threats',
+      'spam',
+      'personalInfo',
+    ] as const) {
+      const value = settings.actions[key]
+      if (!value || !VALID_ACTIONS.includes(value)) {
+        errors.push(`actions.${key} must be one of: warn, delete, ban, report`)
+      }
+    }
   }
 
-  if (typeof settings.threatDetectionEnabled !== 'boolean') {
-    errors.push('threatDetectionEnabled must be a boolean')
+  if (!settings.thresholds || typeof settings.thresholds !== 'object') {
+    errors.push('thresholds object is required')
+  } else {
+    const { messageLength, repetitionCount, capsRatio, confidence } = settings.thresholds
+    if (typeof messageLength !== 'number' || messageLength < 1) {
+      errors.push('thresholds.messageLength must be a positive number')
+    }
+    if (typeof repetitionCount !== 'number' || repetitionCount < 1) {
+      errors.push('thresholds.repetitionCount must be a positive number')
+    }
+    if (typeof capsRatio !== 'number' || capsRatio < 0 || capsRatio > 1) {
+      errors.push('thresholds.capsRatio must be a number between 0 and 1')
+    }
+    if (typeof confidence !== 'number' || confidence < 0 || confidence > 1) {
+      errors.push('thresholds.confidence must be a number between 0 and 1')
+    }
   }
 
-  if (typeof settings.spamDetectionEnabled !== 'boolean') {
-    errors.push('spamDetectionEnabled must be a boolean')
+  if (!settings.autoBan || typeof settings.autoBan !== 'object') {
+    errors.push('autoBan object is required')
+  } else {
+    if (typeof settings.autoBan.enabled !== 'boolean') {
+      errors.push('autoBan.enabled must be a boolean')
+    }
+    if (!settings.autoBan.duration || !VALID_DURATIONS.includes(settings.autoBan.duration)) {
+      errors.push('autoBan.duration must be one of: 1h, 24h, 7d, 365d, perm')
+    }
+    if (typeof settings.autoBan.strikeThreshold !== 'number' ||
+      settings.autoBan.strikeThreshold < 1
+    ) {
+      errors.push('autoBan.strikeThreshold must be a positive number')
+    }
   }
 
-  if (typeof settings.personalInfoCheckEnabled !== 'boolean') {
-    errors.push('personalInfoCheckEnabled must be a boolean')
+  if (settings.useModelModeration !== undefined && typeof settings.useModelModeration !== 'boolean') {
+    errors.push('useModelModeration must be a boolean')
   }
 
-  // Check numeric fields
-  if (typeof settings.maxStrikes !== 'number' || settings.maxStrikes < 1 || settings.maxStrikes > 10) {
-    errors.push('maxStrikes must be a number between 1 and 10')
-  }
-
-  if (typeof settings.firstStrikeBanHours !== 'number' || settings.firstStrikeBanHours < 1) {
-    errors.push('firstStrikeBanHours must be a positive number')
-  }
-
-  if (typeof settings.secondStrikeBanDays !== 'number' || settings.secondStrikeBanDays < 1) {
-    errors.push('secondStrikeBanDays must be a positive number')
-  }
-
-  // Check string fields
-  if (typeof settings.defaultBanReason !== 'string' || settings.defaultBanReason.trim().length === 0) {
-    errors.push('defaultBanReason must be a non-empty string')
-  }
-
-  if (typeof settings.warningMessage !== 'string') {
-    errors.push('warningMessage must be a string')
+  if (settings.fallbackToRegex !== undefined && typeof settings.fallbackToRegex !== 'boolean') {
+    errors.push('fallbackToRegex must be a boolean')
   }
 
   return errors
-} 
+}

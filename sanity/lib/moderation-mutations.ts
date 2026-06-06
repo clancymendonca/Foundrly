@@ -23,6 +23,8 @@ export async function logModerationActivity(
       severity: activity.severity,
       itemId: activity.itemId,
       itemType: activity.itemType,
+      source: activity.source,
+      model: activity.model,
       timestamp: new Date().toISOString(),
     }
 

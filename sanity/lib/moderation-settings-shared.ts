@@ -18,6 +18,8 @@ export async function saveModerationSettingsWithClient(
       actions: settings.actions,
       thresholds: settings.thresholds,
       autoBan: settings.autoBan,
+      useModelModeration: settings.useModelModeration ?? true,
+      fallbackToRegex: settings.fallbackToRegex ?? true,
       lastUpdated: new Date().toISOString(),
     }
 
