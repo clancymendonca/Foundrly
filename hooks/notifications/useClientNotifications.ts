@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback } from 'react';
-import { UnifiedPushNotificationService } from '@/lib/unifiedPushNotifications';
+import { UnifiedPushNotificationService } from '@/lib/notifications/unifiedPushNotifications';
 
 interface NotificationData {
   type: 'like' | 'dislike' | 'comment' | 'reply' | 'interested' | 'follow';

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { enhancedBadgeSystem, RARITY_LEVELS, EXTENDED_METRICS } from '@/lib/enhanced-badge-system';
+import { enhancedBadgeSystem, RARITY_LEVELS, EXTENDED_METRICS } from '@/lib/badges/enhanced-badge-system';
 
 interface UseEnhancedBadgesReturn {
   // State

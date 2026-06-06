@@ -3,7 +3,7 @@ import { auth } from '@/auth';
 import { writeClient } from '@/sanity/lib/write-client';
 import { client } from '@/sanity/lib/client';
 import { createInterestedSubmissionNotification } from '@/sanity/lib/notifications';
-import { ServerPushNotificationService } from '@/lib/serverPushNotifications';
+import { ServerPushNotificationService } from '@/lib/notifications/serverPushNotifications';
 
 export async function POST(req: Request) {
   const session = await auth();

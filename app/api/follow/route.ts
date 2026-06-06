@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { writeClient } from '@/sanity/lib/write-client';
 import { canUserPerformAction } from '@/lib/ban-checks';
 import { createFollowNotification } from '@/sanity/lib/notifications';
-import { ServerPushNotificationService } from '@/lib/serverPushNotifications';
+import { ServerPushNotificationService } from '@/lib/notifications/serverPushNotifications';
 
 export async function POST(req: Request) {
   try {

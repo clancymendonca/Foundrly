@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { client } from '@/sanity/lib/client'
 import { writeClient } from '@/sanity/lib/write-client'
-import { MetricCalculator, TimeframeCalculator, StreakTracker } from '@/lib/enhanced-badge-system'
+import { MetricCalculator, TimeframeCalculator, StreakTracker } from '@/lib/badges/enhanced-badge-system'
 
 export async function POST(req: NextRequest) {
   try {

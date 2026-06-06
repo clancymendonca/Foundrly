@@ -1,3 +1,4 @@
+/** Canonical base badge system. See enhanced-badge-system.ts for the extended tier/rarity implementation used in production UI. */
 import { client } from '@/sanity/lib/client';
 
 export interface BadgeCriteria {

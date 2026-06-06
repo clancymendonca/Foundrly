@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { auth } from '@/auth';
-import { realtimeNotificationService } from '@/lib/realtimeNotifications';
+import { realtimeNotificationService } from '@/lib/notifications/realtimeNotifications';
 
 export async function GET(req: NextRequest) {
   // This is a placeholder for WebSocket upgrade

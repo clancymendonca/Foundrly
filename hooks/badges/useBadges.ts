@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { badgeSystem, UserBadge, BadgeProgress } from '@/lib/badge-system';
+import { badgeSystem, UserBadge, BadgeProgress } from '@/lib/badges/badge-system';
 
 interface UseBadgesReturn {
   badges: UserBadge[];

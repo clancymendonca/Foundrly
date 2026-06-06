@@ -1,3 +1,4 @@
+/** Canonical enhanced badge system (primary API for badges UI and recalculation). */
 import { client } from '@/sanity/lib/client';
 
 // Enhanced rarity levels with custom styling

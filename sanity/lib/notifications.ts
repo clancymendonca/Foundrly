@@ -1,8 +1,8 @@
 import { client } from './client';
 import { writeClient } from './write-client';
-import { Notification } from '@/components/NotificationBell';
-import { sendCriticalNotificationEmail } from '@/lib/emailNotifications';
-import { sendPushNotification } from '@/lib/pushNotifications';
+import { Notification } from '@/components/notifications/NotificationBell';
+import { sendCriticalNotificationEmail } from '@/lib/notifications/emailNotifications';
+import { sendPushNotification } from '@/lib/notifications/pushNotifications';
 
 export interface CreateNotificationData {
   recipientId: string;

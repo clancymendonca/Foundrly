@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
-import { StreamChatPushService } from '@/lib/streamChatPushNotifications';
+import { StreamChatPushService } from '@/lib/notifications/streamChatPushNotifications';
 import { StreamChat } from 'stream-chat';
 
 // Interface for push notification state

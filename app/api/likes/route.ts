@@ -3,7 +3,7 @@ import { client } from '@/sanity/lib/client';
 import { writeClient } from '@/sanity/lib/write-client';
 import { auth } from '@/auth';
 import { createLikeNotification } from '@/sanity/lib/notifications';
-import { ServerPushNotificationService } from '@/lib/serverPushNotifications';
+import { ServerPushNotificationService } from '@/lib/notifications/serverPushNotifications';
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);

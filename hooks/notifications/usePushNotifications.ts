@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
-import { PushNotificationService } from '@/lib/pushNotifications';
+import { PushNotificationService } from '@/lib/notifications/pushNotifications';
 
 export interface PushNotificationState {
   isSupported: boolean;

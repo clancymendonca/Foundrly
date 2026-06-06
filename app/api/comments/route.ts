@@ -4,7 +4,7 @@ import { writeClient } from '@/sanity/lib/write-client';
 import { auth } from '@/auth';
 import { v4 as uuidv4 } from 'uuid';
 import { createCommentNotification, createReplyNotification } from '@/sanity/lib/notifications';
-import { ServerPushNotificationService } from '@/lib/serverPushNotifications';
+import { ServerPushNotificationService } from '@/lib/notifications/serverPushNotifications';
 
 // GET: Fetch comments for a startup (PUBLIC - no auth required)
 export async function GET(req: Request) {

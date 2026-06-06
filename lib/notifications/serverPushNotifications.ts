@@ -38,7 +38,7 @@ export class ServerPushNotificationService {
         
         // Send real-time notification
         try {
-          const { sendRealtimeNotification } = await import('@/lib/realtimeNotifications');
+          const { sendRealtimeNotification } = await import('@/lib/notifications/realtimeNotifications');
           await sendRealtimeNotification({
             type: notification.type,
             recipientId: notification.recipientId,
