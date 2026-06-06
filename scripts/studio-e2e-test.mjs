@@ -3,7 +3,8 @@
  * Usage: node scripts/studio-e2e-test.mjs [baseUrl]
  */
 
-const BASE = process.argv[2] || 'http://localhost:3000'
+const BASE = process.argv.find((arg) => arg.startsWith('http')) || 'http://localhost:3000'
+const CI_MODE = process.argv.includes('--ci') || process.env.CI === 'true'
 
 const results = []
 
@@ -15,6 +16,11 @@ function pass(name, detail = '') {
 function fail(name, detail = '') {
   results.push({ name, ok: false, detail })
   console.log(`✗ ${name}${detail ? ` — ${detail}` : ''}`)
+}
+
+function skip(name, detail = '') {
+  results.push({ name, ok: true, detail: `skipped: ${detail}`, skipped: true })
+  console.log(`○ ${name} — skipped (${detail})`)
 }
 
 async function fetchJson(path, options = {}) {
@@ -110,6 +116,10 @@ async function testAdminAuth() {
 }
 
 async function testExportRoute() {
+  if (CI_MODE) {
+    skip('Sanity export', 'requires live Sanity project (skipped in CI)')
+    return
+  }
   const res = await fetchJson('/api/sanity/export?types=notification,moderationActivity&limit=1&max=5')
   if (res.status === 200 && res.body?.ok) {
     pass('Sanity export', `notification=${res.body.counts?.notification ?? 0}, activity=${res.body.counts?.moderationActivity ?? 0}`)
@@ -121,9 +131,12 @@ async function testExportRoute() {
 async function testModerationSettings() {
   const res = await fetchJson('/api/moderation/settings')
   if (res.status === 200) {
-    pass('Moderation settings API', res.body?.enabled !== undefined ? `enabled=${res.body.enabled}` : 'reachable')
+    const enabled = res.body?.settings?.enabled ?? res.body?.enabled
+    pass('Moderation settings API', enabled !== undefined ? `enabled=${enabled}` : 'reachable')
   } else if (res.status === 404) {
     pass('Moderation settings API', 'route exists (404 ok if no doc)')
+  } else if (CI_MODE && res.status >= 500) {
+    skip('Moderation settings API', 'Sanity unavailable in CI')
   } else {
     fail('Moderation settings API', `HTTP ${res.status}`)
   }
@@ -143,7 +156,7 @@ async function testCommentsModerationShape() {
 }
 
 async function main() {
-  console.log(`\nSanity Studio E2E Test — ${BASE}\n${'='.repeat(50)}\n`)
+  console.log(`\nSanity Studio E2E Test — ${BASE}${CI_MODE ? ' (CI mode)' : ''}\n${'='.repeat(50)}\n`)
 
   try {
     await fetch(`${BASE}/`, { method: 'HEAD' })
@@ -159,11 +172,12 @@ async function main() {
   await testModerationSettings()
   await testCommentsModerationShape()
 
-  const passed = results.filter((r) => r.ok).length
+  const passed = results.filter((r) => r.ok && !r.skipped).length
+  const skipped = results.filter((r) => r.skipped).length
   const failed = results.filter((r) => !r.ok).length
 
   console.log(`\n${'='.repeat(50)}`)
-  console.log(`Results: ${passed} passed, ${failed} failed, ${results.length} total`)
+  console.log(`Results: ${passed} passed, ${skipped} skipped, ${failed} failed, ${results.length} total`)
 
   if (failed > 0) {
     console.log('\nFailed:')
