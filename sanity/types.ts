@@ -564,3 +564,595 @@ export type SanityAssetSourceData = {
 
 export type AllSanitySchemaTypes = SearchEvent | StartupCommentEvent | StartupDislikeEvent | StartupLikeEvent | InterestedSubmission | AccountHistory | UserBadge | Badge | PushSubscription | ModerationActivity | ModerationSettings | Playlist | Author | Report | Comment | Startup | Markdown | SanityImagePaletteSwatch | SanityImagePalette | SanityImageDimensions | SanityImageHotspot | SanityImageCrop | SanityFileAsset | SanityImageAsset | SanityImageMetadata | Geopoint | Slug | SanityAssetSourceData;
 export declare const internalGroqTypeReferenceTo: unique symbol;
+// Source: ./sanity/lib/activity-queries.ts
+// Variable: TEST_REPORTS_QUERY
+// Query: *[_type == "report" && reportedBy._ref == $userId] {    _id,    reportedType,    reason,    timestamp,    status,    reportedRef  }
+export type TEST_REPORTS_QUERYResult = Array<{
+  _id: string;
+  reportedType: "comment" | "startup" | "user" | null;
+  reason: string | null;
+  timestamp: string | null;
+  status: "action-taken" | "pending" | "reviewed" | null;
+  reportedRef: {
+    _ref: string;
+    _type: "reference";
+    _weak?: boolean;
+    [internalGroqTypeReferenceTo]?: "author";
+  } | {
+    _ref: string;
+    _type: "reference";
+    _weak?: boolean;
+    [internalGroqTypeReferenceTo]?: "comment";
+  } | {
+    _ref: string;
+    _type: "reference";
+    _weak?: boolean;
+    [internalGroqTypeReferenceTo]?: "startup";
+  } | null;
+}>;
+// Variable: ALL_REPORTS_QUERY
+// Query: *[_type == "report"] {    _id,    reportedType,    reason,    timestamp,    status,    reportedBy,    reportedRef  }
+export type ALL_REPORTS_QUERYResult = Array<{
+  _id: string;
+  reportedType: "comment" | "startup" | "user" | null;
+  reason: string | null;
+  timestamp: string | null;
+  status: "action-taken" | "pending" | "reviewed" | null;
+  reportedBy: {
+    _ref: string;
+    _type: "reference";
+    _weak?: boolean;
+    [internalGroqTypeReferenceTo]?: "author";
+  } | null;
+  reportedRef: {
+    _ref: string;
+    _type: "reference";
+    _weak?: boolean;
+    [internalGroqTypeReferenceTo]?: "author";
+  } | {
+    _ref: string;
+    _type: "reference";
+    _weak?: boolean;
+    [internalGroqTypeReferenceTo]?: "comment";
+  } | {
+    _ref: string;
+    _type: "reference";
+    _weak?: boolean;
+    [internalGroqTypeReferenceTo]?: "startup";
+  } | null;
+}>;
+// Variable: STARTUP_IDS_FROM_REPORTS_QUERY
+// Query: *[_type == "report" && reportedBy._ref == $userId && reportedType == "startup"] {    reportedRef  }
+export type STARTUP_IDS_FROM_REPORTS_QUERYResult = Array<{
+  reportedRef: {
+    _ref: string;
+    _type: "reference";
+    _weak?: boolean;
+    [internalGroqTypeReferenceTo]?: "author";
+  } | {
+    _ref: string;
+    _type: "reference";
+    _weak?: boolean;
+    [internalGroqTypeReferenceTo]?: "comment";
+  } | {
+    _ref: string;
+    _type: "reference";
+    _weak?: boolean;
+    [internalGroqTypeReferenceTo]?: "startup";
+  } | null;
+}>;
+// Variable: ALL_USER_REPORTS_QUERY
+// Query: *[_type == "report" && reportedBy._ref == $userId] {    _id,    reason,    timestamp,    status,    reportedType,    reportedRef  }
+export type ALL_USER_REPORTS_QUERYResult = Array<{
+  _id: string;
+  reason: string | null;
+  timestamp: string | null;
+  status: "action-taken" | "pending" | "reviewed" | null;
+  reportedType: "comment" | "startup" | "user" | null;
+  reportedRef: {
+    _ref: string;
+    _type: "reference";
+    _weak?: boolean;
+    [internalGroqTypeReferenceTo]?: "author";
+  } | {
+    _ref: string;
+    _type: "reference";
+    _weak?: boolean;
+    [internalGroqTypeReferenceTo]?: "comment";
+  } | {
+    _ref: string;
+    _type: "reference";
+    _weak?: boolean;
+    [internalGroqTypeReferenceTo]?: "startup";
+  } | null;
+}>;
+// Variable: STARTUPS_BY_IDS_QUERY
+// Query: *[_type == "startup" && _id in $startupIds] {    _id,    title,    slug,    _createdAt,    author -> {      _id, name, image, bio    },    views,    description,    category,    image,    likes,    dislikes,    "commentsCount": count(comments)  }
+export type STARTUPS_BY_IDS_QUERYResult = Array<{
+  _id: string;
+  title: string | null;
+  slug: Slug | null;
+  _createdAt: string;
+  author: {
+    _id: string;
+    name: string | null;
+    image: string | null;
+    bio: string | null;
+  } | null;
+  views: number | null;
+  description: string | null;
+  category: string | null;
+  image: string | null;
+  likes: number | null;
+  dislikes: number | null;
+  commentsCount: number | null;
+}>;
+// Variable: USER_LIKED_STARTUPS_QUERY
+// Query: *[_type == "startup" && $userId in likedBy] | order(_createdAt desc) {    _id,    title,    slug,    _createdAt,    author -> {      _id, name, image, bio    },    views,    description,    category,    image,    likes,    dislikes,    "commentsCount": count(comments),    "likedAt": _createdAt  }
+export type USER_LIKED_STARTUPS_QUERYResult = Array<{
+  _id: string;
+  title: string | null;
+  slug: Slug | null;
+  _createdAt: string;
+  author: {
+    _id: string;
+    name: string | null;
+    image: string | null;
+    bio: string | null;
+  } | null;
+  views: number | null;
+  description: string | null;
+  category: string | null;
+  image: string | null;
+  likes: number | null;
+  dislikes: number | null;
+  commentsCount: number | null;
+  likedAt: string;
+}>;
+// Variable: USER_COMMENTED_STARTUPS_QUERY
+// Query: *[_type == "startup" && _id in *[_type == "comment" && author._ref == $userId].startup._ref] | order(_createdAt desc) {    _id,    title,    slug,    _createdAt,    author -> {      _id, name, image, bio    },    views,    description,    category,    image,    likes,    dislikes,    "commentsCount": count(comments),    "userComments": *[_type == "comment" && startup._ref == ^._id && author._ref == $userId] {      _id,      text,      createdAt,      likes,      dislikes    }  }
+export type USER_COMMENTED_STARTUPS_QUERYResult = Array<{
+  _id: string;
+  title: string | null;
+  slug: Slug | null;
+  _createdAt: string;
+  author: {
+    _id: string;
+    name: string | null;
+    image: string | null;
+    bio: string | null;
+  } | null;
+  views: number | null;
+  description: string | null;
+  category: string | null;
+  image: string | null;
+  likes: number | null;
+  dislikes: number | null;
+  commentsCount: number | null;
+  userComments: Array<{
+    _id: string;
+    text: string | null;
+    createdAt: string | null;
+    likes: number | null;
+    dislikes: number | null;
+  }>;
+}>;
+// Variable: USER_REPORTED_CONTENT_QUERY
+// Query: {    "startups": *[_type == "startup" && _id in *[_type == "report" && reportedBy._ref == $userId && reportedType == "startup"].reportedRef._ref] {      _id,      title,      slug,      _createdAt,      author -> {        _id, name, image, bio      },      views,      description,      category,      image,      likes,      dislikes,      "commentsCount": count(comments),      "userReports": *[_type == "report" && reportedRef._ref == ^._id && reportedBy._ref == $userId && reportedType == "startup"] {        _id,        reason,        timestamp,        status      }    },    "comments": *[_type == "comment" && _id in *[_type == "report" && reportedBy._ref == $userId && reportedType == "comment"].reportedRef._ref] {      _id,      text,      createdAt,      likes,      dislikes,      startup -> {        _id,        title,        slug,        image      },      author -> {        _id,        name,        image      },      "userReports": *[_type == "report" && reportedRef._ref == ^._id && reportedBy._ref == $userId && reportedType == "comment"] {        _id,        reason,        timestamp,        status      }    }  }
+export type USER_REPORTED_CONTENT_QUERYResult = {
+  startups: Array<{
+    _id: string;
+    title: string | null;
+    slug: Slug | null;
+    _createdAt: string;
+    author: {
+      _id: string;
+      name: string | null;
+      image: string | null;
+      bio: string | null;
+    } | null;
+    views: number | null;
+    description: string | null;
+    category: string | null;
+    image: string | null;
+    likes: number | null;
+    dislikes: number | null;
+    commentsCount: number | null;
+    userReports: Array<{
+      _id: string;
+      reason: string | null;
+      timestamp: string | null;
+      status: "action-taken" | "pending" | "reviewed" | null;
+    }>;
+  }>;
+  comments: Array<{
+    _id: string;
+    text: string | null;
+    createdAt: string | null;
+    likes: number | null;
+    dislikes: number | null;
+    startup: {
+      _id: string;
+      title: string | null;
+      slug: Slug | null;
+      image: string | null;
+    } | null;
+    author: {
+      _id: string;
+      name: string | null;
+      image: string | null;
+    } | null;
+    userReports: Array<{
+      _id: string;
+      reason: string | null;
+      timestamp: string | null;
+      status: "action-taken" | "pending" | "reviewed" | null;
+    }>;
+  }>;
+};
+
+// Source: ./sanity/lib/queries.ts
+// Variable: STARTUPS_QUERY
+// Query: *[_type == "startup" && defined(slug.current) && !defined($search) || title match $search || category match $search || author->name match $search] | order(_createdAt desc) {  _id,   title,   slug,  _createdAt,  author -> {    _id, name, image, bio  },   views,  description,  category,  image,  likes,  dislikes,  "commentsCount": count(comments),  buyMeACoffeeUsername,}
+export type STARTUPS_QUERYResult = Array<{
+  _id: string;
+  title: null;
+  slug: null;
+  _createdAt: string;
+  author: null;
+  views: null;
+  description: null;
+  category: null;
+  image: null;
+  likes: null;
+  dislikes: null;
+  commentsCount: null;
+  buyMeACoffeeUsername: null;
+} | {
+  _id: string;
+  title: string | null;
+  slug: Slug | null;
+  _createdAt: string;
+  author: null;
+  views: null;
+  description: null;
+  category: null;
+  image: null;
+  likes: null;
+  dislikes: null;
+  commentsCount: null;
+  buyMeACoffeeUsername: null;
+} | {
+  _id: string;
+  title: null;
+  slug: null;
+  _createdAt: string;
+  author: null;
+  views: null;
+  description: null;
+  category: null;
+  image: string | null;
+  likes: null;
+  dislikes: null;
+  commentsCount: null;
+  buyMeACoffeeUsername: null;
+} | {
+  _id: string;
+  title: string | null;
+  slug: null;
+  _createdAt: string;
+  author: null;
+  views: null;
+  description: string | null;
+  category: null;
+  image: null;
+  likes: null;
+  dislikes: null;
+  commentsCount: null;
+  buyMeACoffeeUsername: null;
+} | {
+  _id: string;
+  title: null;
+  slug: null;
+  _createdAt: string;
+  author: null;
+  views: null;
+  description: string | null;
+  category: "achievement" | "community" | "creator" | "social" | "special" | null;
+  image: null;
+  likes: null;
+  dislikes: null;
+  commentsCount: null;
+  buyMeACoffeeUsername: null;
+} | {
+  _id: string;
+  title: null;
+  slug: null;
+  _createdAt: string;
+  author: {
+    _id: string;
+    name: string | null;
+    image: string | null;
+    bio: string | null;
+  } | null;
+  views: null;
+  description: null;
+  category: null;
+  image: null;
+  likes: number | null;
+  dislikes: number | null;
+  commentsCount: null;
+  buyMeACoffeeUsername: null;
+} | {
+  _id: string;
+  title: string | null;
+  slug: Slug | null;
+  _createdAt: string;
+  author: {
+    _id: string;
+    name: string | null;
+    image: string | null;
+    bio: string | null;
+  } | null;
+  views: number | null;
+  description: string | null;
+  category: string | null;
+  image: string | null;
+  likes: number | null;
+  dislikes: number | null;
+  commentsCount: number | null;
+  buyMeACoffeeUsername: string | null;
+}>;
+// Variable: STARTUP_BY_ID_QUERY
+// Query: *[_type == "startup" && _id == $id][0]{  _id,   title,   slug,  _createdAt,  author -> {    _id, name, username, image, bio  },   views,  description,  category,  image,  pitch,  buyMeACoffeeUsername,}
+export type STARTUP_BY_ID_QUERYResult = {
+  _id: string;
+  title: string | null;
+  slug: Slug | null;
+  _createdAt: string;
+  author: {
+    _id: string;
+    name: string | null;
+    username: string | null;
+    image: string | null;
+    bio: string | null;
+  } | null;
+  views: number | null;
+  description: string | null;
+  category: string | null;
+  image: string | null;
+  pitch: string | null;
+  buyMeACoffeeUsername: string | null;
+} | null;
+// Variable: STARTUP_VIEWS_QUERY
+// Query: *[_type == "startup" && _id == $id][0]{        _id, views    }
+export type STARTUP_VIEWS_QUERYResult = {
+  _id: string;
+  views: number | null;
+} | null;
+// Variable: AUTHOR_BY_GITHUB_ID_QUERY
+// Query: *[_type == "author" && id == $id][0]{    _id,    id,    name,    username,    email,    image,    bio,    followers[]->{ _id, name, username, image },    following[]->{ _id, name, username, image }}
+export type AUTHOR_BY_GITHUB_ID_QUERYResult = {
+  _id: string;
+  id: string | null;
+  name: string | null;
+  username: string | null;
+  email: string | null;
+  image: string | null;
+  bio: string | null;
+  followers: Array<{
+    _id: string;
+    name: string | null;
+    username: string | null;
+    image: string | null;
+  }> | null;
+  following: Array<{
+    _id: string;
+    name: string | null;
+    username: string | null;
+    image: string | null;
+  }> | null;
+} | null;
+// Variable: AUTHOR_BY_ID_QUERY
+// Query: *[_type == "author" && _id == $id][0]{    _id,    id,    name,    username,    email,    image,    bio,    followers[]->{ _id, name, username, image },    following[]->{ _id, name, username, image }}
+export type AUTHOR_BY_ID_QUERYResult = {
+  _id: string;
+  id: string | null;
+  name: string | null;
+  username: string | null;
+  email: string | null;
+  image: string | null;
+  bio: string | null;
+  followers: Array<{
+    _id: string;
+    name: string | null;
+    username: string | null;
+    image: string | null;
+  }> | null;
+  following: Array<{
+    _id: string;
+    name: string | null;
+    username: string | null;
+    image: string | null;
+  }> | null;
+} | null;
+// Variable: AUTHOR_FOLLOWERS_FOLLOWING_QUERY
+// Query: *[_type == "author" && _id == $id][0]{    _id,    followers,    following}
+export type AUTHOR_FOLLOWERS_FOLLOWING_QUERYResult = {
+  _id: string;
+  followers: Array<{
+    _ref: string;
+    _type: "reference";
+    _weak?: boolean;
+    _key: string;
+    [internalGroqTypeReferenceTo]?: "author";
+  }> | null;
+  following: Array<{
+    _ref: string;
+    _type: "reference";
+    _weak?: boolean;
+    _key: string;
+    [internalGroqTypeReferenceTo]?: "author";
+  }> | null;
+} | null;
+// Variable: STARTUPS_BY_AUTHOR_QUERY
+// Query: *[_type == "startup" && author._ref == $id] | order(_createdAt desc) {  _id,   title,   slug,  _createdAt,  author -> {    _id, name, image, bio  },   views,  description,  category,  image,  likes,  dislikes,  "commentsCount": count(comments),  buyMeACoffeeUsername,}
+export type STARTUPS_BY_AUTHOR_QUERYResult = Array<{
+  _id: string;
+  title: string | null;
+  slug: Slug | null;
+  _createdAt: string;
+  author: {
+    _id: string;
+    name: string | null;
+    image: string | null;
+    bio: string | null;
+  } | null;
+  views: number | null;
+  description: string | null;
+  category: string | null;
+  image: string | null;
+  likes: number | null;
+  dislikes: number | null;
+  commentsCount: number | null;
+  buyMeACoffeeUsername: string | null;
+}>;
+// Variable: PLAYLIST_BY_SLUG_QUERY
+// Query: *[_type == "playlist" && slug.current == $slug][0]{  _id,  title,  slug,  select[]->{    _id,    _createdAt,    title,    slug,    author->{      _id,      name,      slug,      image,      bio    },    views,    description,    category,    image,    pitch  }}
+export type PLAYLIST_BY_SLUG_QUERYResult = {
+  _id: string;
+  title: string | null;
+  slug: Slug | null;
+  select: Array<{
+    _id: string;
+    _createdAt: string;
+    title: string | null;
+    slug: Slug | null;
+    author: {
+      _id: string;
+      name: string | null;
+      slug: null;
+      image: string | null;
+      bio: string | null;
+    } | null;
+    views: number | null;
+    description: string | null;
+    category: string | null;
+    image: string | null;
+    pitch: string | null;
+  }> | null;
+} | null;
+// Variable: SUGGESTED_USERS_QUERY
+// Query: *[_type == "author" && _id != $currentUserId && !($currentUserFollowing[] match _id)] | order(_createdAt desc)[0...15]{    _id,    id,    name,    username,    email,    image,    bio,    followers[]->{ _id, name, username, image },    following[]->{ _id, name, username, image }}
+export type SUGGESTED_USERS_QUERYResult = Array<{
+  _id: string;
+  id: string | null;
+  name: string | null;
+  username: string | null;
+  email: string | null;
+  image: string | null;
+  bio: string | null;
+  followers: Array<{
+    _id: string;
+    name: string | null;
+    username: string | null;
+    image: string | null;
+  }> | null;
+  following: Array<{
+    _id: string;
+    name: string | null;
+    username: string | null;
+    image: string | null;
+  }> | null;
+}>;
+// Variable: CURRENT_USER_FOLLOWERS_QUERY
+// Query: *[_type == "author" && _id == $currentUserId][0]{    followers[]->{ _id, name, username, image, bio },    following[]->{ _id, name, username, image, bio }}
+export type CURRENT_USER_FOLLOWERS_QUERYResult = {
+  followers: Array<{
+    _id: string;
+    name: string | null;
+    username: string | null;
+    image: string | null;
+    bio: string | null;
+  }> | null;
+  following: Array<{
+    _id: string;
+    name: string | null;
+    username: string | null;
+    image: string | null;
+    bio: string | null;
+  }> | null;
+} | null;
+// Variable: ALL_USERS_QUERY
+// Query: *[_type == "author"] | order(_createdAt desc)[0...50]{    _id,    id,    name,    username,    email,    image,    bio,    followers[]->{ _id, name, username, image },    following[]->{ _id, name, username, image }}
+export type ALL_USERS_QUERYResult = Array<{
+  _id: string;
+  id: string | null;
+  name: string | null;
+  username: string | null;
+  email: string | null;
+  image: string | null;
+  bio: string | null;
+  followers: Array<{
+    _id: string;
+    name: string | null;
+    username: string | null;
+    image: string | null;
+  }> | null;
+  following: Array<{
+    _id: string;
+    name: string | null;
+    username: string | null;
+    image: string | null;
+  }> | null;
+}>;
+// Variable: SAVED_STARTUPS_QUERY
+// Query: *[_type == "startup" && $userId in savedBy] | order(_createdAt desc) {  _id,   title,   slug,  _createdAt,  author -> {    _id, name, image, bio  },   views,  description,  category,  image,  likes,  dislikes,  "commentsCount": count(comments),  buyMeACoffeeUsername,  savedBy}
+export type SAVED_STARTUPS_QUERYResult = Array<{
+  _id: string;
+  title: string | null;
+  slug: Slug | null;
+  _createdAt: string;
+  author: {
+    _id: string;
+    name: string | null;
+    image: string | null;
+    bio: string | null;
+  } | null;
+  views: number | null;
+  description: string | null;
+  category: string | null;
+  image: string | null;
+  likes: number | null;
+  dislikes: number | null;
+  commentsCount: number | null;
+  buyMeACoffeeUsername: string | null;
+  savedBy: Array<string> | null;
+}>;
+
+// Query TypeMap
+import "@sanity/client";
+declare module "@sanity/client" {
+  interface SanityQueries {
+    "\n  *[_type == \"report\" && reportedBy._ref == $userId] {\n    _id,\n    reportedType,\n    reason,\n    timestamp,\n    status,\n    reportedRef\n  }\n": TEST_REPORTS_QUERYResult;
+    "\n  *[_type == \"report\"] {\n    _id,\n    reportedType,\n    reason,\n    timestamp,\n    status,\n    reportedBy,\n    reportedRef\n  }\n": ALL_REPORTS_QUERYResult;
+    "\n  *[_type == \"report\" && reportedBy._ref == $userId && reportedType == \"startup\"] {\n    reportedRef\n  }\n": STARTUP_IDS_FROM_REPORTS_QUERYResult;
+    "\n  *[_type == \"report\" && reportedBy._ref == $userId] {\n    _id,\n    reason,\n    timestamp,\n    status,\n    reportedType,\n    reportedRef\n  }\n": ALL_USER_REPORTS_QUERYResult;
+    "\n  *[_type == \"startup\" && _id in $startupIds] {\n    _id,\n    title,\n    slug,\n    _createdAt,\n    author -> {\n      _id, name, image, bio\n    },\n    views,\n    description,\n    category,\n    image,\n    likes,\n    dislikes,\n    \"commentsCount\": count(comments)\n  }\n": STARTUPS_BY_IDS_QUERYResult;
+    "\n  *[_type == \"startup\" && $userId in likedBy] | order(_createdAt desc) {\n    _id,\n    title,\n    slug,\n    _createdAt,\n    author -> {\n      _id, name, image, bio\n    },\n    views,\n    description,\n    category,\n    image,\n    likes,\n    dislikes,\n    \"commentsCount\": count(comments),\n    \"likedAt\": _createdAt\n  }\n": USER_LIKED_STARTUPS_QUERYResult;
+    "\n  *[_type == \"startup\" && _id in *[_type == \"comment\" && author._ref == $userId].startup._ref] | order(_createdAt desc) {\n    _id,\n    title,\n    slug,\n    _createdAt,\n    author -> {\n      _id, name, image, bio\n    },\n    views,\n    description,\n    category,\n    image,\n    likes,\n    dislikes,\n    \"commentsCount\": count(comments),\n    \"userComments\": *[_type == \"comment\" && startup._ref == ^._id && author._ref == $userId] {\n      _id,\n      text,\n      createdAt,\n      likes,\n      dislikes\n    }\n  }\n": USER_COMMENTED_STARTUPS_QUERYResult;
+    "\n  {\n    \"startups\": *[_type == \"startup\" && _id in *[_type == \"report\" && reportedBy._ref == $userId && reportedType == \"startup\"].reportedRef._ref] {\n      _id,\n      title,\n      slug,\n      _createdAt,\n      author -> {\n        _id, name, image, bio\n      },\n      views,\n      description,\n      category,\n      image,\n      likes,\n      dislikes,\n      \"commentsCount\": count(comments),\n      \"userReports\": *[_type == \"report\" && reportedRef._ref == ^._id && reportedBy._ref == $userId && reportedType == \"startup\"] {\n        _id,\n        reason,\n        timestamp,\n        status\n      }\n    },\n    \"comments\": *[_type == \"comment\" && _id in *[_type == \"report\" && reportedBy._ref == $userId && reportedType == \"comment\"].reportedRef._ref] {\n      _id,\n      text,\n      createdAt,\n      likes,\n      dislikes,\n      startup -> {\n        _id,\n        title,\n        slug,\n        image\n      },\n      author -> {\n        _id,\n        name,\n        image\n      },\n      \"userReports\": *[_type == \"report\" && reportedRef._ref == ^._id && reportedBy._ref == $userId && reportedType == \"comment\"] {\n        _id,\n        reason,\n        timestamp,\n        status\n      }\n    }\n  }\n": USER_REPORTED_CONTENT_QUERYResult;
+    "*[_type == \"startup\" && defined(slug.current) && !defined($search) || title match $search || category match $search || author->name match $search] | order(_createdAt desc) {\n  _id, \n  title, \n  slug,\n  _createdAt,\n  author -> {\n    _id, name, image, bio\n  }, \n  views,\n  description,\n  category,\n  image,\n  likes,\n  dislikes,\n  \"commentsCount\": count(comments),\n  buyMeACoffeeUsername,\n}": STARTUPS_QUERYResult;
+    "*[_type == \"startup\" && _id == $id][0]{\n  _id, \n  title, \n  slug,\n  _createdAt,\n  author -> {\n    _id, name, username, image, bio\n  }, \n  views,\n  description,\n  category,\n  image,\n  pitch,\n  buyMeACoffeeUsername,\n}": STARTUP_BY_ID_QUERYResult;
+    "\n    *[_type == \"startup\" && _id == $id][0]{\n        _id, views\n    }\n": STARTUP_VIEWS_QUERYResult;
+    "\n*[_type == \"author\" && id == $id][0]{\n    _id,\n    id,\n    name,\n    username,\n    email,\n    image,\n    bio,\n    followers[]->{ _id, name, username, image },\n    following[]->{ _id, name, username, image }\n}\n": AUTHOR_BY_GITHUB_ID_QUERYResult;
+    "\n*[_type == \"author\" && _id == $id][0]{\n    _id,\n    id,\n    name,\n    username,\n    email,\n    image,\n    bio,\n    followers[]->{ _id, name, username, image },\n    following[]->{ _id, name, username, image }\n}\n": AUTHOR_BY_ID_QUERYResult;
+    "\n*[_type == \"author\" && _id == $id][0]{\n    _id,\n    followers,\n    following\n}\n": AUTHOR_FOLLOWERS_FOLLOWING_QUERYResult;
+    "*[_type == \"startup\" && author._ref == $id] | order(_createdAt desc) {\n  _id, \n  title, \n  slug,\n  _createdAt,\n  author -> {\n    _id, name, image, bio\n  }, \n  views,\n  description,\n  category,\n  image,\n  likes,\n  dislikes,\n  \"commentsCount\": count(comments),\n  buyMeACoffeeUsername,\n}": STARTUPS_BY_AUTHOR_QUERYResult;
+    "*[_type == \"playlist\" && slug.current == $slug][0]{\n  _id,\n  title,\n  slug,\n  select[]->{\n    _id,\n    _createdAt,\n    title,\n    slug,\n    author->{\n      _id,\n      name,\n      slug,\n      image,\n      bio\n    },\n    views,\n    description,\n    category,\n    image,\n    pitch\n  }\n}": PLAYLIST_BY_SLUG_QUERYResult;
+    "\n*[_type == \"author\" && _id != $currentUserId && !($currentUserFollowing[] match _id)] | order(_createdAt desc)[0...15]{\n    _id,\n    id,\n    name,\n    username,\n    email,\n    image,\n    bio,\n    followers[]->{ _id, name, username, image },\n    following[]->{ _id, name, username, image }\n}\n": SUGGESTED_USERS_QUERYResult;
+    "\n*[_type == \"author\" && _id == $currentUserId][0]{\n    followers[]->{ _id, name, username, image, bio },\n    following[]->{ _id, name, username, image, bio }\n}\n": CURRENT_USER_FOLLOWERS_QUERYResult;
+    "\n*[_type == \"author\"] | order(_createdAt desc)[0...50]{\n    _id,\n    id,\n    name,\n    username,\n    email,\n    image,\n    bio,\n    followers[]->{ _id, name, username, image },\n    following[]->{ _id, name, username, image }\n}\n": ALL_USERS_QUERYResult;
+    "\n*[_type == \"startup\" && $userId in savedBy] | order(_createdAt desc) {\n  _id, \n  title, \n  slug,\n  _createdAt,\n  author -> {\n    _id, name, image, bio\n  }, \n  views,\n  description,\n  category,\n  image,\n  likes,\n  dislikes,\n  \"commentsCount\": count(comments),\n  buyMeACoffeeUsername,\n  savedBy\n}": SAVED_STARTUPS_QUERYResult;
+  }
+}

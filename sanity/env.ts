@@ -11,6 +11,14 @@ export const projectId = assertValue(
   'Missing environment variable: NEXT_PUBLIC_SANITY_PROJECT_ID'
 )
 
+const PLACEHOLDER_SANITY_PROJECT_IDS = new Set(['abc12345', 'your_project_id'])
+
+if (PLACEHOLDER_SANITY_PROJECT_IDS.has(projectId)) {
+  throw new Error(
+    'NEXT_PUBLIC_SANITY_PROJECT_ID is set to a placeholder value. Update .env.local with your Sanity project ID from https://sanity.io/manage'
+  )
+}
+
 export const token = process.env.SANITY_WRITE_TOKEN;
 
 function assertValue<T>(v: T | undefined, errorMessage: string): T {
