@@ -164,6 +164,18 @@ export const moderationSettings = defineType({
       description: "Automatic ban settings",
     }),
     defineField({
+      name: "useModelModeration",
+      type: "boolean",
+      initialValue: true,
+      description: "Use GROQ AI model for content moderation",
+    }),
+    defineField({
+      name: "fallbackToRegex",
+      type: "boolean",
+      initialValue: true,
+      description: "Fall back to regex rules if the AI model is unavailable",
+    }),
+    defineField({
       name: "lastUpdated",
       type: "datetime",
       readOnly: true,

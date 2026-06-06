@@ -2,6 +2,17 @@ import type { SanityClient } from 'next-sanity'
 
 import type { ModerationSettings } from './moderation-queries'
 
+/**
+ * Persist moderation settings to the Sanity dataset by updating the existing
+ * `moderationSettings` document or creating one if none exists.
+ *
+ * The saved document will include a `lastUpdated` ISO timestamp. If
+ * `settings.useModelModeration` or `settings.fallbackToRegex` are omitted, they
+ * default to `true`.
+ *
+ * @param settings - Moderation configuration to persist (fields include `enabled`, `severity`, `actions`, `thresholds`, `autoBan`, `useModelModeration`, `fallbackToRegex`)
+ * @returns `true` if the settings were successfully created or updated, `false` otherwise.
+ */
 export async function saveModerationSettingsWithClient(
   client: SanityClient,
   settings: ModerationSettings
@@ -18,6 +29,8 @@ export async function saveModerationSettingsWithClient(
       actions: settings.actions,
       thresholds: settings.thresholds,
       autoBan: settings.autoBan,
+      useModelModeration: settings.useModelModeration ?? true,
+      fallbackToRegex: settings.fallbackToRegex ?? true,
       lastUpdated: new Date().toISOString(),
     }
 

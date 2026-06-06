@@ -1,7 +1,7 @@
 import { studioReadClient } from './studio-client'
 
 export interface ModerationStats {
-  totalMessages: number
+  moderationEvents: number
   flaggedMessages: number
   deletedMessages: number
   bannedUsers: number
@@ -23,6 +23,8 @@ export interface ModerationActivity {
   severity: 'low' | 'medium' | 'high' | 'critical'
   itemId?: string
   itemType?: string
+  source?: string
+  model?: string
 }
 
 export interface ModerationSettings {
@@ -46,49 +48,88 @@ export interface ModerationSettings {
     duration: '1h' | '24h' | '7d' | '365d' | 'perm'
     strikeThreshold: number
   }
+  useModelModeration?: boolean
+  fallbackToRegex?: boolean
+}
+
+export interface ModerationActivityFilters {
+  type?: ModerationActivity['type']
+  severity?: ModerationActivity['severity']
+  since?: string
+  limit?: number
+  offset?: number
 }
 
 /**
- * Fetch moderation statistics
+ * Produce an ISO 8601 timestamp for the time a given number of hours in the past.
+ *
+ * @param hours - Number of hours before the current time
+ * @returns An ISO 8601 timestamp string for the time `hours` hours ago
  */
-export async function getModerationStats(): Promise<ModerationStats> {
+function hoursAgo(hours: number): string {
+  return new Date(Date.now() - hours * 60 * 60 * 1000).toISOString()
+}
+
+/**
+ * Fetches aggregated moderation counters and computes the moderation rate.
+ *
+ * @param since - ISO timestamp string to limit event-based counts (defaults to 24 hours ago when omitted)
+ * @returns An object containing:
+ * - `moderationEvents`: number of moderation activity records since `since`
+ * - `flaggedMessages`: number of warning or message deletion events since `since`
+ * - `deletedMessages`: number of message deletion events since `since`
+ * - `bannedUsers`: total count of banned authors
+ * - `activeReports`: count of reports with status `"pending"`
+ * - `moderationRate`: percentage of moderated content (flagged comments + banned startups) over total content (comments + startups), rounded to two decimals
+ * - `totalComments`: total number of comments
+ * - `flaggedComments`: number of comments referenced by reports
+ * - `totalStartups`: total number of startups
+ * - `bannedStartups`: total number of banned startups
+ */
+export async function getModerationStats(since?: string): Promise<ModerationStats> {
+  const sinceTimestamp = since ?? hoursAgo(24)
+
   try {
-    // Get total users
-    const totalUsers = await studioReadClient.fetch(`count(*[_type == "author"])`)
-    
-    // Get banned users
-    const bannedUsers = await studioReadClient.fetch(`count(*[_type == "author" && isBanned == true])`)
-    
-    // Get total reports
-    const totalReports = await studioReadClient.fetch(`count(*[_type == "report"])`)
-    
-    // Get active reports
-    const activeReports = await studioReadClient.fetch(`count(*[_type == "report" && status == "pending"])`)
-    
-    // Get total comments
-    const totalComments = await studioReadClient.fetch(`count(*[_type == "comment"])`)
-    
-    // Get flagged comments (comments that have been reported)
-    const flaggedComments = await studioReadClient.fetch(`count(*[_type == "comment" && _id in *[_type == "report" && reportedType == "comment"].reportedRef])`)
-    
-    // Get total startups
-    const totalStartups = await studioReadClient.fetch(`count(*[_type == "startup"])`)
-    
-    // Get banned startups
-    const bannedStartups = await studioReadClient.fetch(`count(*[_type == "startup" && isBanned == true])`)
-    
-    // Calculate moderation rate (percentage of content that has been moderated)
+    const [
+      bannedUsers,
+      activeReports,
+      totalComments,
+      flaggedComments,
+      totalStartups,
+      bannedStartups,
+      moderationEvents,
+      flaggedMessages,
+      deletedMessages,
+    ] = await Promise.all([
+      studioReadClient.fetch(`count(*[_type == "author" && isBanned == true])`),
+      studioReadClient.fetch(`count(*[_type == "report" && status == "pending"])`),
+      studioReadClient.fetch(`count(*[_type == "comment"])`),
+      studioReadClient.fetch(
+        `count(*[_type == "comment" && _id in *[_type == "report" && reportedType == "comment"].reportedRef])`
+      ),
+      studioReadClient.fetch(`count(*[_type == "startup"])`),
+      studioReadClient.fetch(`count(*[_type == "startup" && isBanned == true])`),
+      studioReadClient.fetch(
+        `count(*[_type == "moderationActivity" && timestamp >= $since])`,
+        { since: sinceTimestamp }
+      ),
+      studioReadClient.fetch(
+        `count(*[_type == "moderationActivity" && timestamp >= $since && type in ["warning_sent", "message_deleted"]])`,
+        { since: sinceTimestamp }
+      ),
+      studioReadClient.fetch(
+        `count(*[_type == "moderationActivity" && timestamp >= $since && type == "message_deleted"])`,
+        { since: sinceTimestamp }
+      ),
+    ])
+
     const totalContent = totalComments + totalStartups
     const moderatedContent = flaggedComments + bannedStartups
-    const moderationRate = totalContent > 0 ? (moderatedContent / totalContent) * 100 : 0
-    
-    // For chat messages, we'll estimate based on reports
-    const totalMessages = totalReports * 10 // Estimate based on reports
-    const flaggedMessages = totalReports
-    const deletedMessages = Math.floor(totalReports * 0.7) // Estimate 70% of flagged messages are deleted
-    
+    const moderationRate =
+      totalContent > 0 ? (moderatedContent / totalContent) * 100 : 0
+
     return {
-      totalMessages,
+      moderationEvents,
       flaggedMessages,
       deletedMessages,
       bannedUsers,
@@ -97,12 +138,12 @@ export async function getModerationStats(): Promise<ModerationStats> {
       totalComments,
       flaggedComments,
       totalStartups,
-      bannedStartups
+      bannedStartups,
     }
   } catch (error) {
     console.error('Error fetching moderation stats:', error)
     return {
-      totalMessages: 0,
+      moderationEvents: 0,
       flaggedMessages: 0,
       deletedMessages: 0,
       bannedUsers: 0,
@@ -111,82 +152,90 @@ export async function getModerationStats(): Promise<ModerationStats> {
       totalComments: 0,
       flaggedComments: 0,
       totalStartups: 0,
-      bannedStartups: 0
+      bannedStartups: 0,
     }
   }
 }
 
 /**
- * Fetch recent moderation activity
- */
-export async function getModerationActivity(limit: number = 20): Promise<ModerationActivity[]> {
+ * Fetches moderation activity records filtered and paginated by the provided criteria.
+ *
+ * Retrieves documents from the `moderationActivity` index that match optional `type`, `severity`, and `since` filters, ordered by `timestamp` descending, and maps each document's `_id` to `id`.
+ *
+ * @param filters - Optional filters and pagination:
+ *   - `type` — activity type to match (e.g., "message_deleted", "user_banned").
+ *   - `severity` — severity level to match ("low" | "medium" | "high" | "critical").
+ *   - `since` — ISO timestamp; only include activities with `timestamp >= since`.
+ *   - `limit` — maximum number of items to return (default 50).
+ *   - `offset` — number of items to skip for pagination (default 0).
+ * @returns An array of `ModerationActivity` objects matching the filters, ordered by newest first. Returns an empty array if the query fails. */
+export async function getModerationActivity(
+  filters: ModerationActivityFilters = {}
+): Promise<ModerationActivity[]> {
+  const { type, severity, since, limit = 50, offset = 0 } = filters
+
   try {
-    // Get recent reports
-    const reports = await studioReadClient.fetch(`
-      *[_type == "report"] | order(timestamp desc)[0...${limit}] {
+    const filterParts = ['_type == "moderationActivity"']
+    const params: Record<string, string | number> = { limit, offset }
+
+    if (type) {
+      filterParts.push('type == $type')
+      params.type = type
+    }
+    if (severity) {
+      filterParts.push('severity == $severity')
+      params.severity = severity
+    }
+    if (since) {
+      filterParts.push('timestamp >= $since')
+      params.since = since
+    }
+
+    const filter = filterParts.join(' && ')
+    const end = offset + limit
+
+    const activities = await studioReadClient.fetch(
+      `*[${filter}] | order(timestamp desc)[${offset}...${end}] {
         _id,
+        type,
         timestamp,
-        reportedType,
-        reportedRef,
+        userId,
+        userName,
         reason,
-        status,
-        reportedBy->{_id, name, username},
-        reportedItem->{_id, title, text}
-      }
-    `)
-    
-    // Get recent ban history entries
-    const banHistory = await studioReadClient.fetch(`
-      *[_type == "author" && defined(banHistory) && count(banHistory) > 0] {
-        _id,
-        name,
-        username,
-        "banHistory": banHistory[] {
-          timestamp,
-          reason,
-          duration,
-          strikeNumber
-        }
-      } | order(banHistory[-1].timestamp desc)[0...${limit}]
-    `)
-    
-    const activities: ModerationActivity[] = []
-    
-    // Process reports
-    reports.forEach((report: any) => {
-      activities.push({
-        id: report._id,
-        timestamp: report.timestamp,
-        type: 'report_created',
-        userId: report.reportedBy?._id || 'unknown',
-        userName: report.reportedBy?.name || report.reportedBy?.username || 'Unknown User',
-        reason: report.reason,
-        severity: report.severity || 'medium',
-        itemId: report.reportedRef,
-        itemType: report.reportedType
-      })
-    })
-    
-    // Process ban history
-    banHistory.forEach((user: any) => {
-      if (user.banHistory && user.banHistory.length > 0) {
-        const latestBan = user.banHistory[user.banHistory.length - 1]
-        activities.push({
-          id: `${user._id}_ban_${latestBan.timestamp}`,
-          timestamp: latestBan.timestamp,
-          type: 'user_banned',
-          userId: user._id,
-          userName: user.name || user.username || 'Unknown User',
-          reason: latestBan.reason,
-          severity: latestBan.strikeNumber >= 3 ? 'critical' : 'high'
-        })
-      }
-    })
-    
-    // Sort by timestamp and limit
-    return activities
-      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-      .slice(0, limit)
+        severity,
+        itemId,
+        itemType,
+        source,
+        model
+      }`,
+      params
+    )
+
+    return activities.map((activity: {
+      _id: string
+      type: ModerationActivity['type']
+      timestamp: string
+      userId: string
+      userName: string
+      reason: string
+      severity: ModerationActivity['severity']
+      itemId?: string
+      itemType?: string
+      source?: string
+      model?: string
+    }) => ({
+      id: activity._id,
+      timestamp: activity.timestamp,
+      type: activity.type,
+      userId: activity.userId,
+      userName: activity.userName,
+      reason: activity.reason,
+      severity: activity.severity,
+      itemId: activity.itemId,
+      itemType: activity.itemType,
+      source: activity.source,
+      model: activity.model,
+    }))
   } catch (error) {
     console.error('Error fetching moderation activity:', error)
     return []
@@ -194,7 +243,13 @@ export async function getModerationActivity(limit: number = 20): Promise<Moderat
 }
 
 /**
- * Fetch moderation settings
+ * Fetches the moderation configuration from the CMS and applies sensible defaults for any missing fields.
+ *
+ * Reads the first `moderationSettings` document and fills in default values for `enabled`, `severity`,
+ * `actions`, `thresholds`, `autoBan`, `useModelModeration`, and `fallbackToRegex` when those properties are absent.
+ * If no settings document exists or an error occurs while fetching, the function returns `null`.
+ *
+ * @returns A `ModerationSettings` object with defaults applied for missing fields, or `null` if no document is found or on error.
  */
 export async function getModerationSettings(): Promise<ModerationSettings | null> {
   try {
@@ -205,14 +260,16 @@ export async function getModerationSettings(): Promise<ModerationSettings | null
         actions,
         thresholds,
         autoBan,
+        useModelModeration,
+        fallbackToRegex,
         lastUpdated
       }
     `)
-    
+
     if (!settings) {
       return null
     }
-    
+
     return {
       enabled: settings.enabled ?? true,
       severity: settings.severity ?? 'medium',
@@ -221,19 +278,21 @@ export async function getModerationSettings(): Promise<ModerationSettings | null
         hateSpeech: settings.actions?.hateSpeech ?? 'ban',
         threats: settings.actions?.threats ?? 'ban',
         spam: settings.actions?.spam ?? 'delete',
-        personalInfo: settings.actions?.personalInfo ?? 'delete'
+        personalInfo: settings.actions?.personalInfo ?? 'delete',
       },
       thresholds: {
         messageLength: settings.thresholds?.messageLength ?? 500,
         repetitionCount: settings.thresholds?.repetitionCount ?? 3,
         capsRatio: settings.thresholds?.capsRatio ?? 0.7,
-        confidence: settings.thresholds?.confidence ?? 0.6
+        confidence: settings.thresholds?.confidence ?? 0.6,
       },
       autoBan: {
         enabled: settings.autoBan?.enabled ?? true,
         duration: settings.autoBan?.duration ?? '24h',
-        strikeThreshold: settings.autoBan?.strikeThreshold ?? 2
-      }
+        strikeThreshold: settings.autoBan?.strikeThreshold ?? 2,
+      },
+      useModelModeration: settings.useModelModeration ?? true,
+      fallbackToRegex: settings.fallbackToRegex ?? true,
     }
   } catch (error) {
     console.error('Error fetching moderation settings:', error)

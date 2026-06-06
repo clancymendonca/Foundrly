@@ -2,35 +2,61 @@ import { NextRequest, NextResponse } from 'next/server'
 import { StreamChat } from 'stream-chat'
 import { client } from '@/sanity/lib/client'
 import { writeClient } from '@/sanity/lib/write-client'
-import { moderateContent, verifyWebhookSignature } from '@/lib/stream-chat-moderation'
-import { createBanHistoryEntry, calculateStrikeBan, getCurrentStrikeCount } from '@/sanity/lib/strike-system'
+import { moderateContentAsync, verifyWebhookSignature } from '@/lib/stream-chat-moderation'
+import type { ModerationResultWithMeta } from '@/lib/moderation-service'
+import { getModerationSettings } from '@/sanity/lib/moderation-queries'
+import {
+  createBanHistoryEntry,
+  calculateStrikeBan,
+  getCurrentStrikeCount,
+  type BanHistoryEntry,
+} from '@/sanity/lib/strike-system'
 import { calculateBanEndDate } from '@/sanity/lib/moderation'
 import { logModerationActivity } from '@/sanity/lib/moderation-mutations'
+import type { ModerationSettings } from '@/sanity/lib/moderation-queries'
 
 const apiKey = process.env.STREAM_API_KEY!
 const apiSecret = process.env.STREAM_API_SECRET!
 const webhookSecret = process.env.STREAM_WEBHOOK_SECRET!
 
+/**
+ * Extracts moderation metadata for use in activity logs and reports.
+ *
+ * @param result - Moderation result containing metadata fields
+ * @returns An object with `source` and `model` properties from the moderation result
+ */
+function activityMeta(result: ModerationResultWithMeta) {
+  return {
+    source: result.source,
+    model: result.model,
+  }
+}
+
+/**
+ * Handle Stream Chat webhook events: verify the webhook signature, run content moderation,
+ * and apply the resulting action (delete, ban, report, or warn).
+ *
+ * @param request - The incoming Next.js request containing the webhook payload and `x-signature` header
+ * @returns A JSON NextResponse indicating success or error. On successful moderation actions the response
+ * includes `moderationResult` and `action`; on failure returns an error message with an appropriate HTTP
+ * status (401 for auth issues, 400 for invalid payload, 404 if the user is not found, or 500 for internal errors).
+ */
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    const payload = JSON.stringify(body)
-    
-    // Verify webhook signature for security
+    const payload = await request.text()
+
     const signature = request.headers.get('x-signature')
     if (!signature || !webhookSecret) {
       return NextResponse.json({ error: 'Missing signature or webhook secret' }, { status: 401 })
     }
 
-    // Verify the signature
     if (!verifyWebhookSignature(payload, signature, webhookSecret)) {
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
     }
 
-    // Handle different webhook events
+    const body = JSON.parse(payload)
     const { type, channel_id, message, user_id } = body
 
-    // Only process new messages
     if (type !== 'message.new') {
       return NextResponse.json({ success: true, message: 'Event ignored' })
     }
@@ -39,21 +65,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid message data' }, { status: 400 })
     }
 
-    // Moderate the message content
-    const moderationResult = moderateContent(message.text)
+    const settings = await getModerationSettings()
+    const moderationResult = await moderateContentAsync(message.text, settings)
 
     if (!moderationResult.isFlagged) {
       return NextResponse.json({ success: true, message: 'No moderation needed' })
     }
 
-    // Get user information from Sanity
     const user = await client.fetch(
       `*[_type == "author" && _id == $userId][0]{
-        _id, 
-        name, 
-        username, 
-        bannedUntil, 
-        isBanned, 
+        _id,
+        name,
+        username,
+        bannedUntil,
+        isBanned,
         banHistory,
         strikeCount
       }`,
@@ -65,19 +90,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    // Initialize Stream Chat server client
     const serverClient = StreamChat.getInstance(apiKey, apiSecret)
     const channel = serverClient.channel('messaging', channel_id)
 
-    // Handle moderation based on severity and action
     switch (moderationResult.action) {
       case 'delete':
-        await handleMessageDeletion(channel, message.id, moderationResult.reason)
+        await handleMessageDeletion(channel, message.id, moderationResult, user)
         break
 
       case 'ban':
-        await handleUserBan(user, moderationResult, message.id, channel_id)
-        await handleMessageDeletion(channel, message.id, moderationResult.reason)
+        await handleUserBan(user, moderationResult, message.id, settings)
+        await handleMessageDeletion(channel, message.id, moderationResult, user)
         break
 
       case 'report':
@@ -86,167 +109,235 @@ export async function POST(request: NextRequest) {
 
       case 'warn':
       default:
-        await handleUserWarning(channel, user_id, moderationResult)
+        await handleUserWarning(channel, user, moderationResult, channel_id)
         break
     }
 
     return NextResponse.json({
       success: true,
       moderationResult,
-      action: moderationResult.action
+      action: moderationResult.action,
     })
-
   } catch (error) {
     console.error('Error in webhook moderation:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
-async function handleMessageDeletion(channel: any, messageId: string, reason: string) {
-  try {
-    await channel.deleteMessage(messageId, {
-      hard: true,
-      user_id: 'system'
-    })
-    console.log(`Message deleted: ${messageId} - Reason: ${reason}`)
-    
-    // Log moderation activity
-    await logModerationActivity({
-      type: 'message_deleted',
-      userId: 'unknown', // We don't have user info in this context
-      userName: 'Unknown User',
-      reason: reason,
-      severity: 'medium',
-      itemId: messageId,
-      itemType: 'message'
-    })
-  } catch (error) {
-    console.error('Error deleting message:', error)
-  }
-}
-
-async function handleUserBan(
-  user: any, 
-  moderationResult: any, 
-  messageId: string, 
-  channelId: string
+/**
+ * Deletes a flagged message from the provided channel and records the moderation activity.
+ *
+ * @param channel - Server-side channel instance exposing a `deleteMessage(id, opts)` method
+ * @param messageId - The ID of the message to delete
+ * @param moderationResult - Moderation result and metadata (reason, severity, source, model, etc.) used for logging
+ * @param user - The message author record containing `_id` and optional `name`/`username` for identification in logs
+ */
+async function handleMessageDeletion(
+  channel: { deleteMessage: (id: string, opts?: object) => Promise<unknown> },
+  messageId: string,
+  moderationResult: ModerationResultWithMeta,
+  user: { _id: string; name?: string; username?: string }
 ) {
-  try {
-    // Calculate current strike count
-    const currentStrikes = getCurrentStrikeCount(user.banHistory || [])
-    
-    // Determine ban duration based on strike system
-    const banDuration = moderationResult.severity === 'critical' ? 'perm' : '24h'
-    const strikeResult = calculateStrikeBan(currentStrikes, banDuration)
-    
-    // Calculate ban end date
-    const banEndDate = strikeResult.isPermanent ? null : calculateBanEndDate(strikeResult.banDuration as any)
-    
-    // Create ban history entry
-    const banHistoryEntry = createBanHistoryEntry(
-      strikeResult.banDuration,
-      `Auto-moderation: ${moderationResult.reason}`,
-      undefined, // No report ID for auto-moderation
-      strikeResult.strikeNumber
+  await channel.deleteMessage(messageId, {
+    hard: true,
+    user_id: 'system',
+  })
+
+  await logModerationActivity({
+    type: 'message_deleted',
+    userId: user._id,
+    userName: user.name || user.username || 'Unknown User',
+    reason: moderationResult.reason,
+    severity: moderationResult.severity as 'low' | 'medium' | 'high' | 'critical',
+    itemId: messageId,
+    itemType: 'message',
+    ...activityMeta(moderationResult),
+  })
+}
+
+/**
+ * Applies automated ban or strike logic to a user based on a moderation result, persists ban state, and logs the moderation activity.
+ *
+ * Uses moderation settings (when provided) to determine whether auto-ban is enabled, the strike threshold, and default ban duration. If auto-ban is disabled or the user has not reached the configured strike threshold (and the severity is not `critical`), the function records a warning instead of banning. When a ban is applied it computes the appropriate ban duration (including permanent bans for `critical` severity), appends a ban-history entry, updates the user's ban fields in the datastore, and logs a `user_banned` activity. Errors are caught and logged; the function does not throw.
+ *
+ * @param user - The user document to update (must include `_id`; may include `name`, `username`, `banHistory`, and `strikeCount`)
+ * @param moderationResult - The moderation outcome including `reason`, `severity`, and metadata used for activity logging
+ * @param messageId - Identifier of the message that triggered moderation, used as the related item in logs
+ * @param settings - Moderation settings or `null`; when present, `settings.autoBan.enabled`, `settings.autoBan.strikeThreshold`, and `settings.autoBan.duration` influence behavior
+ */
+async function handleUserBan(
+  user: {
+    _id: string
+    name?: string
+    username?: string
+    banHistory?: BanHistoryEntry[]
+    strikeCount?: number
+  },
+  moderationResult: ModerationResultWithMeta,
+  messageId: string,
+  settings: ModerationSettings | null
+) {
+  if (settings && !settings.autoBan.enabled) {
+    await logModerationActivity({
+      type: 'warning_sent',
+      userId: user._id,
+      userName: user.name || user.username || 'Unknown User',
+      reason: `Ban skipped (auto-ban disabled): ${moderationResult.reason}`,
+      severity: moderationResult.severity as 'low' | 'medium' | 'high' | 'critical',
+      itemId: messageId,
+      itemType: 'message',
+      ...activityMeta(moderationResult),
+    })
+    return
+  }
+
+  const currentStrikes = getCurrentStrikeCount(user.banHistory || [])
+  const strikeThreshold = settings?.autoBan.strikeThreshold ?? 2
+  const strikeDuration = settings?.autoBan.duration ?? '24h'
+
+  if (currentStrikes + 1 < strikeThreshold && moderationResult.severity !== 'critical') {
+    const strikeNumber = currentStrikes + 1
+    const warningEntry = createBanHistoryEntry(
+      strikeDuration,
+      `Strike ${strikeNumber}/${strikeThreshold}: ${moderationResult.reason}`,
+      undefined,
+      strikeNumber
     )
 
-    // Update user with ban
     await writeClient
       .patch(user._id)
       .set({
-        isBanned: true,
-        bannedUntil: banEndDate ? banEndDate.toISOString() : null,
-        strikeCount: strikeResult.strikeNumber,
-        banHistory: [
-          ...(user.banHistory || []),
-          banHistoryEntry
-        ]
+        strikeCount: strikeNumber,
+        banHistory: [...(user.banHistory || []), warningEntry],
       })
       .commit()
 
-    console.log(`User banned: ${user._id} - Duration: ${strikeResult.banDuration} - Reason: ${moderationResult.reason}`)
-    
-    // Log moderation activity
-    await logModerationActivity({
-      type: 'user_banned',
-      userId: user._id,
-      userName: user.name || user.username || 'Unknown User',
-      reason: `Auto-moderation: ${moderationResult.reason}`,
-      severity: strikeResult.isPermanent ? 'critical' : 'high',
-      itemId: messageId,
-      itemType: 'message'
-    })
-  } catch (error) {
-    console.error('Error banning user:', error)
-  }
-}
-
-async function createModerationReport(
-  user: any, 
-  moderationResult: any, 
-  message: any, 
-  channelId: string
-) {
-  try {
-    // Create auto-moderation report in Sanity
-    const report = await writeClient.create({
-      _type: 'report',
-      reportedType: 'user',
-      reportedRef: {
-        _type: 'reference',
-        _ref: user._id,
-      },
-      reason: `Auto-moderation: ${moderationResult.reason}\n\nDetected patterns: ${moderationResult.patterns.join(', ')}\nConfidence: ${Math.round(moderationResult.confidence * 100)}%\n\nMessage: "${message.text}"`,
-      reportedBy: {
-        _type: 'reference',
-        _ref: 'system', // System-generated report
-      },
-      timestamp: new Date().toISOString(),
-      status: 'pending',
-      adminNotes: `Auto-generated report from Stream Chat moderation.\nSeverity: ${moderationResult.severity}\nChannel: ${channelId}\nMessage ID: ${message.id}`
-    })
-
-    console.log(`Auto-moderation report created: ${report._id}`)
-    
-    // Log moderation activity
-    await logModerationActivity({
-      type: 'report_created',
-      userId: user._id,
-      userName: user.name || user.username || 'Unknown User',
-      reason: `Auto-moderation: ${moderationResult.reason}`,
-      severity: moderationResult.severity,
-      itemId: report._id,
-      itemType: 'report'
-    })
-  } catch (error) {
-    console.error('Error creating moderation report:', error)
-  }
-}
-
-async function handleUserWarning(channel: any, userId: string, moderationResult: any) {
-  try {
-    // Send warning message to the channel
-    await channel.sendMessage({
-      text: `⚠️ Warning: ${moderationResult.reason}. Please be respectful in this chat.`,
-      user_id: 'system',
-      type: 'system',
-    })
-    console.log(`Warning sent to user: ${userId}`)
-    
-    // Log moderation activity
     await logModerationActivity({
       type: 'warning_sent',
-      userId: userId,
-      userName: 'Unknown User',
-      reason: `Auto-moderation: ${moderationResult.reason}`,
-      severity: moderationResult.severity,
-      itemId: channelId,
-      itemType: 'channel'
+      userId: user._id,
+      userName: user.name || user.username || 'Unknown User',
+      reason: `Strike ${strikeNumber}/${strikeThreshold}: ${moderationResult.reason}`,
+      severity: 'high',
+      itemId: messageId,
+      itemType: 'message',
+      ...activityMeta(moderationResult),
     })
-  } catch (error) {
-    console.error('Error sending warning:', error)
+    return
   }
-} 
+
+  const banDuration =
+    moderationResult.severity === 'critical'
+      ? 'perm'
+      : strikeDuration
+  const strikeResult = calculateStrikeBan(currentStrikes, banDuration)
+  const banEndDate = strikeResult.isPermanent
+    ? null
+    : calculateBanEndDate(strikeResult.banDuration as '1h' | '24h' | '7d' | '365d' | 'perm')
+
+  const banHistoryEntry = createBanHistoryEntry(
+    strikeResult.banDuration,
+    `Auto-moderation: ${moderationResult.reason}`,
+    undefined,
+    strikeResult.strikeNumber
+  )
+
+  await writeClient
+    .patch(user._id)
+    .set({
+      isBanned: true,
+      bannedUntil: banEndDate ? banEndDate.toISOString() : null,
+      strikeCount: strikeResult.strikeNumber,
+      banHistory: [...(user.banHistory || []), banHistoryEntry],
+    })
+    .commit()
+
+  await logModerationActivity({
+    type: 'user_banned',
+    userId: user._id,
+    userName: user.name || user.username || 'Unknown User',
+    reason: `Auto-moderation: ${moderationResult.reason}`,
+    severity: strikeResult.isPermanent ? 'critical' : 'high',
+    itemId: messageId,
+    itemType: 'message',
+    ...activityMeta(moderationResult),
+  })
+}
+
+/**
+ * Creates a Sanity "report" document for a flagged message and logs a `report_created` moderation activity.
+ *
+ * The created report contains the moderation reason, detected patterns, confidence, source, optional model, original message text,
+ * timestamp, and admin notes including severity and channel/message identifiers. After creation, a moderation activity entry is logged
+ * that references the report and includes moderation metadata from `moderationResult`.
+ *
+ * @param user - The reported user object; must include `_id` and may include `name` or `username` for activity logging
+ * @param moderationResult - Moderation result metadata (reason, patterns, confidence, source, model, severity) used to build the report and activity
+ * @param message - The original message object containing `id` and `text` to include in the report
+ * @param channelId - The channel identifier where the message was posted (used in admin notes and activity)
+ */
+async function createModerationReport(
+  user: { _id: string; name?: string; username?: string },
+  moderationResult: ModerationResultWithMeta,
+  message: { id: string; text: string },
+  channelId: string
+) {
+  const report = await writeClient.create({
+    _type: 'report',
+    reportedType: 'user',
+    reportedRef: {
+      _type: 'reference',
+      _ref: user._id,
+    },
+    reason: `Auto-moderation: ${moderationResult.reason}\n\nDetected patterns: ${moderationResult.patterns.join(', ')}\nConfidence: ${Math.round(moderationResult.confidence * 100)}%\nSource: ${moderationResult.source}${moderationResult.model ? `\nModel: ${moderationResult.model}` : ''}\n\nMessage: "${message.text}"`,
+    reportedBy: {
+      _type: 'reference',
+      _ref: 'system',
+    },
+    timestamp: new Date().toISOString(),
+    status: 'pending',
+    adminNotes: `Auto-generated report from Stream Chat moderation.\nSeverity: ${moderationResult.severity}\nChannel: ${channelId}\nMessage ID: ${message.id}`,
+  })
+
+  await logModerationActivity({
+    type: 'report_created',
+    userId: user._id,
+    userName: user.name || user.username || 'Unknown User',
+    reason: `Auto-moderation: ${moderationResult.reason}`,
+    severity: moderationResult.severity as 'low' | 'medium' | 'high' | 'critical',
+    itemId: report._id,
+    itemType: 'report',
+    ...activityMeta(moderationResult),
+  })
+}
+
+/**
+ * Sends a system warning message to a channel and records a corresponding moderation activity.
+ *
+ * @param channel - Stream channel instance used to send the system message
+ * @param user - User object for whom the warning is recorded
+ * @param moderationResult - Moderation result metadata describing reason, severity, and detected patterns
+ * @param channelId - Identifier of the channel where the warning was issued
+ */
+async function handleUserWarning(
+  channel: { sendMessage: (msg: object) => Promise<unknown> },
+  user: { _id: string; name?: string; username?: string },
+  moderationResult: ModerationResultWithMeta,
+  channelId: string
+) {
+  await channel.sendMessage({
+    text: `⚠️ Warning: ${moderationResult.reason}. Please be respectful in this chat.`,
+    user_id: 'system',
+    type: 'system',
+  })
+
+  await logModerationActivity({
+    type: 'warning_sent',
+    userId: user._id,
+    userName: user.name || user.username || 'Unknown User',
+    reason: `Auto-moderation: ${moderationResult.reason}`,
+    severity: moderationResult.severity as 'low' | 'medium' | 'high' | 'critical',
+    itemId: channelId,
+    itemType: 'channel',
+    ...activityMeta(moderationResult),
+  })
+}

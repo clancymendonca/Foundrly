@@ -64,6 +64,16 @@ export const moderationActivity = defineType({
       type: "string",
       description: "Type of item that was moderated (optional)",
     }),
+    defineField({
+      name: "source",
+      type: "string",
+      description: "Moderation engine source (groq or regex)",
+    }),
+    defineField({
+      name: "model",
+      type: "string",
+      description: "AI model used for moderation (if applicable)",
+    }),
   ],
   preview: {
     select: {

@@ -13,7 +13,7 @@ export const projectId = assertValue(
 
 const PLACEHOLDER_SANITY_PROJECT_IDS = new Set(['abc12345', 'your_project_id'])
 
-if (PLACEHOLDER_SANITY_PROJECT_IDS.has(projectId)) {
+if (PLACEHOLDER_SANITY_PROJECT_IDS.has(projectId) && process.env.CI !== 'true') {
   throw new Error(
     'NEXT_PUBLIC_SANITY_PROJECT_ID is set to a placeholder value. Update .env.local with your Sanity project ID from https://sanity.io/manage'
   )

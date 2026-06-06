@@ -1,6 +1,5 @@
 import { defineField, defineType } from "sanity";
 import { UserIcon } from "lucide-react";
-import { BanManagementInput } from "../components/BanManagementInput";
 
 export const comment = defineType({
   name: "comment",

@@ -11,6 +11,8 @@
     "typecheck:all": "tsc --noEmit",
     "test": "vitest",
     "test:run": "vitest run",
+    "test:studio-e2e": "node scripts/studio-e2e-test.mjs",
+    "test:studio-e2e:ci": "node scripts/studio-e2e-test.mjs --ci",
     "verify:ci": "npm run lint && npm run typecheck && npm run test:run && npx next build",
     "prebuild": "npm run typegen && node scripts/generate-firebase-config.mjs",
     "generate-firebase-config": "node scripts/generate-firebase-config.mjs",

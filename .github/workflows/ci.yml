@@ -15,14 +15,18 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CI: 'true'
-      # Placeholders so `next build` can collect route modules; replace with real
-      # project values in GitHub Actions secrets if you need a production-faithful build.
+      # Placeholders so `next build` and smoke tests can run without real secrets.
+      # Override with GitHub Actions secrets for production-faithful integration tests.
       NEXT_PUBLIC_SANITY_PROJECT_ID: abc12345
       NEXT_PUBLIC_SANITY_DATASET: production
+      NEXT_PUBLIC_SANITY_API_VERSION: '2025-01-02'
       SANITY_WRITE_TOKEN: skci_placeholder_token_for_build_only_not_for_production
       AUTH_SECRET: ci_auth_secret_minimum_thirty_two_characters_long
       NEXTAUTH_URL: http://localhost:3000
+      AUTH_GITHUB_ID: ci_github_oauth_client_id
+      AUTH_GITHUB_SECRET: ci_github_oauth_client_secret_minimum_length
       GEMINI_API_KEY: fakegeminikeyforcibuildonlyxxxxxxxx
+      GROQ_API_KEY: ''
       PINECONE_API_KEY: pinecone-ci-placeholder-key
       NEXT_PUBLIC_STREAM_API_KEY: fake-stream-public-key-for-ci
       STREAM_API_KEY: fake-stream-api-key-for-ci
@@ -54,3 +58,22 @@ jobs:
       - name: Production build
         # Use `npx next build` so CI does not run `prebuild` / Sanity typegen (requires a real Sanity project).
         run: npx next build
+
+      - name: Start server for Studio smoke tests
+        run: |
+          npx next start -p 3000 &
+          echo "Waiting for server on :3000..."
+          for i in $(seq 1 45); do
+            if curl -sf http://localhost:3000/api/health >/dev/null 2>&1; then
+              echo "Server ready after ${i} attempt(s)"
+              break
+            fi
+            if [ "$i" -eq 45 ]; then
+              echo "Server failed to start"
+              exit 1
+            fi
+            sleep 2
+          done
+
+      - name: Studio smoke tests
+        run: node scripts/studio-e2e-test.mjs --ci http://localhost:3000

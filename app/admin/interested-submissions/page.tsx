@@ -1,9 +1,16 @@
+import { redirect } from 'next/navigation';
+import { getAdminSession } from '@/lib/admin-auth';
 import { client } from '@/sanity/lib/client';
 import { InterestedSubmission } from '@/sanity/types';
 import InterestedSubmissionsManager from './InterestedSubmissionsManager';
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * Fetches interested submission records from Sanity, including linked startup and user data, ordered by `submittedAt` descending.
+ *
+ * @returns An array of `InterestedSubmission` objects containing document metadata, related `startup` (with `author`) and `user` projections, and submission/contact fields.
+ */
 async function getInterestedSubmissions(): Promise<InterestedSubmission[]> {
   const submissions = await client.fetch(`
     *[_type == "interestedSubmission"] | order(submittedAt desc) {
@@ -46,11 +53,25 @@ async function getInterestedSubmissions(): Promise<InterestedSubmission[]> {
       submittedAt
     }
   `);
-  
+
   return submissions;
 }
 
+/**
+ * Admin page that enforces admin authentication and renders the interested submissions management UI.
+ *
+ * If no admin session is present, the user is redirected to the sign-in endpoint with a callback back to
+ * /admin/interested-submissions. When authenticated, the page loads submissions and renders the
+ * InterestedSubmissionsManager component.
+ *
+ * @returns The page's JSX element containing the interested submissions management interface.
+ */
 export default async function InterestedSubmissionsPage() {
+  const session = await getAdminSession();
+  if (!session) {
+    redirect('/api/auth/signin?callbackUrl=/admin/interested-submissions');
+  }
+
   const submissions = await getInterestedSubmissions();
 
   return (

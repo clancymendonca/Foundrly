@@ -1,399 +1,289 @@
-import React, { useState, useEffect } from 'react'
-import { Card, Stack, Text, Badge, Button, Box, Flex, Grid, Inline } from '@sanity/ui'
-import { 
-  Shield, 
-  AlertTriangle, 
-  Users, 
-  MessageSquare, 
+import React, { useState, useEffect, useCallback } from 'react'
+import { Card, Stack, Text, Badge, Button, Flex, Grid } from '@sanity/ui'
+import {
+  Shield,
+  MessageSquare,
   Activity,
   TrendingUp,
   TrendingDown,
-  Clock,
   Ban,
-  CheckCircle,
   Settings,
   TestTube,
   BarChart3,
-  Eye,
-  Filter
 } from 'lucide-react'
 import { ModerationSettings } from './ModerationSettings'
 import { ModerationTest } from './ModerationTest'
-import { getModerationStats, getModerationActivity, type ModerationStats, type ModerationActivity } from '../lib/moderation-queries'
+import { ModerationActivityLog } from './ModerationActivityLog'
+import {
+  getModerationStats,
+  getModerationActivity,
+  getModerationSettings,
+  type ModerationStats,
+  type ModerationActivity,
+} from '../lib/moderation-queries'
+import { isGroqModerationAvailable } from '@/lib/moderation-service'
+import {
+  PanelShell,
+  PanelBadge,
+  PanelLoading,
+  PanelEmpty,
+  PanelError,
+  ActivityRow,
+} from './shared'
 
 export const ModerationDashboard = () => {
   const [activeTab, setActiveTab] = useState<'overview' | 'settings' | 'test' | 'activity'>('overview')
   const [stats, setStats] = useState<ModerationStats>({
-    totalMessages: 0,
+    moderationEvents: 0,
     flaggedMessages: 0,
     deletedMessages: 0,
     bannedUsers: 0,
     activeReports: 0,
-    moderationRate: 0
+    moderationRate: 0,
+    totalComments: 0,
+    flaggedComments: 0,
+    totalStartups: 0,
+    bannedStartups: 0,
   })
   const [recentActivity, setRecentActivity] = useState<ModerationActivity[]>([])
+  const [settingsEnabled, setSettingsEnabled] = useState<boolean | null>(null)
+  const [useModelModeration, setUseModelModeration] = useState(true)
   const [isLoading, setIsLoading] = useState(true)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    // Load moderation data from Sanity
-    const loadModerationData = async () => {
-      try {
+  const loadModerationData = useCallback(async (showRefresh = false) => {
+    try {
+      if (showRefresh) {
+        setIsRefreshing(true)
+      } else {
         setIsLoading(true)
-        
-        // Fetch real data from Sanity
-        const [statsData, activityData] = await Promise.all([
-          getModerationStats(),
-          getModerationActivity(20)
-        ])
-        
-        setStats(statsData)
-        setRecentActivity(activityData)
-      } catch (error) {
-        console.error('Error loading moderation data:', error)
-      } finally {
-        setIsLoading(false)
       }
-    }
+      setError(null)
 
-    loadModerationData()
+      const [statsData, activityData, settings] = await Promise.all([
+        getModerationStats(),
+        getModerationActivity({ limit: 20 }),
+        getModerationSettings(),
+      ])
+
+      setStats(statsData)
+      setRecentActivity(activityData)
+      setSettingsEnabled(settings?.enabled ?? true)
+      setUseModelModeration(settings?.useModelModeration ?? true)
+    } catch (err) {
+      console.error('Error loading moderation data:', err)
+      setError('Failed to load moderation data')
+    } finally {
+      setIsLoading(false)
+      setIsRefreshing(false)
+    }
   }, [])
 
-  const getActivityIcon = (type: ModerationActivity['type']) => {
-    switch (type) {
-      case 'message_deleted':
-        return <AlertTriangle className="h-4 w-4 text-red-600" />
-      case 'user_banned':
-        return <Ban className="h-4 w-4 text-red-600" />
-      case 'warning_sent':
-        return <AlertTriangle className="h-4 w-4 text-yellow-600" />
-      case 'report_created':
-        return <Shield className="h-4 w-4 text-blue-600" />
-      default:
-        return <Activity className="h-4 w-4 text-gray-600" />
-    }
-  }
-
-  const getSeverityColor = (severity: string) => {
-    switch (severity) {
-      case 'low':
-        return 'bg-yellow-100 text-yellow-800'
-      case 'medium':
-        return 'bg-orange-100 text-orange-800'
-      case 'high':
-        return 'bg-red-100 text-red-800'
-      case 'critical':
-        return 'bg-red-200 text-red-900'
-      default:
-        return 'bg-gray-100 text-gray-800'
-    }
-  }
-
-  const formatTimeAgo = (timestamp: string) => {
-    const now = new Date()
-    const time = new Date(timestamp)
-    const diffInMinutes = Math.floor((now.getTime() - time.getTime()) / (1000 * 60))
-    
-    if (diffInMinutes < 1) return 'Just now'
-    if (diffInMinutes < 60) return `${diffInMinutes}m ago`
-    if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h ago`
-    return `${Math.floor(diffInMinutes / 1440)}d ago`
-  }
+  useEffect(() => {
+    loadModerationData()
+  }, [loadModerationData])
 
   const getTabIcon = (tab: string) => {
     switch (tab) {
       case 'overview':
-        return <BarChart3 className="h-4 w-4" />
+        return <BarChart3 style={{ width: 16, height: 16 }} />
       case 'settings':
-        return <Settings className="h-4 w-4" />
+        return <Settings style={{ width: 16, height: 16 }} />
       case 'test':
-        return <TestTube className="h-4 w-4" />
+        return <TestTube style={{ width: 16, height: 16 }} />
       case 'activity':
-        return <Activity className="h-4 w-4" />
+        return <Activity style={{ width: 16, height: 16 }} />
       default:
-        return <Eye className="h-4 w-4" />
+        return <Activity style={{ width: 16, height: 16 }} />
     }
   }
 
   if (isLoading) {
-    return (
-      <Card padding={6} radius={3} shadow={2}>
-        <Stack space={4} align="center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          <Text size={2} muted>Loading moderation data...</Text>
-        </Stack>
-      </Card>
-    )
+    return <PanelLoading message="Loading moderation data..." />
   }
 
   return (
-    <Stack space={6}>
-      {/* Header */}
-      <Card padding={5} radius={3} shadow={2} style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
-        <Stack space={4}>
-          <Flex align="center" justify="space-between">
-            <Stack space={3}>
-              <Flex align="center" gap={3}>
-                <div className="p-3 bg-white/20 rounded-full">
-                  <Shield className="h-6 w-6 text-white" />
-                </div>
-                                 <Stack space={2}>
-                   <Text size={4} weight="bold" style={{ color: 'white' }}>
-                     Moderation Dashboard
-                   </Text>
-                   <Text size={1} style={{ color: 'rgba(255,255,255,0.8)' }}>
-                     Monitor and manage content moderation across the platform
-                   </Text>
-                 </Stack>
-              </Flex>
-            </Stack>
-            <Badge tone="positive" padding={2} style={{ backgroundColor: 'rgba(255,255,255,0.2)', color: 'white' }}>
-              Active
-            </Badge>
-          </Flex>
-        </Stack>
-      </Card>
+    <Stack space={5}>
+      <PanelShell
+        icon={<Shield style={{ width: 32, height: 32 }} />}
+        title="Moderation Dashboard"
+        subtitle="Monitor and manage content moderation across the platform"
+        badges={
+          <>
+            <PanelBadge tone={settingsEnabled ? 'positive' : 'caution'}>
+              {settingsEnabled ? 'Enabled' : 'Disabled'}
+            </PanelBadge>
+            <PanelBadge tone={useModelModeration ? 'primary' : 'caution'}>
+              {useModelModeration ? 'GROQ AI' : 'Regex only'}
+            </PanelBadge>
+            <PanelBadge tone={isGroqModerationAvailable() ? 'positive' : 'caution'}>
+              GROQ {isGroqModerationAvailable() ? 'available' : 'unavailable'}
+            </PanelBadge>
+          </>
+        }
+        onRefresh={() => loadModerationData(true)}
+        isRefreshing={isRefreshing}
+      >
+        {error && <PanelError message={error} onRetry={() => loadModerationData(true)} />}
 
-      {/* Navigation Tabs */}
-      <Card padding={3} radius={2} shadow={1}>
-        <Flex gap={2} wrap="wrap">
-          {[
-            { id: 'overview', label: 'Overview', icon: getTabIcon('overview') },
-            { id: 'settings', label: 'Settings', icon: getTabIcon('settings') },
-            { id: 'test', label: 'Test Tools', icon: getTabIcon('test') },
-            { id: 'activity', label: 'Activity Log', icon: getTabIcon('activity') }
-          ].map((tab) => (
-            <Button
-              key={tab.id}
-              mode={activeTab === tab.id ? 'default' : 'ghost'}
-              tone={activeTab === tab.id ? 'primary' : 'default'}
-              onClick={() => setActiveTab(tab.id as any)}
-              padding={3}
-              style={{ 
-                borderRadius: '8px',
-                minWidth: '120px',
-                transition: 'all 0.2s ease'
-              }}
-            >
-              <Flex align="center" gap={2}>
-                {tab.icon}
-                <Text size={1} weight="semibold">{tab.label}</Text>
-              </Flex>
-            </Button>
-          ))}
-        </Flex>
-      </Card>
-
-      {/* Overview Tab */}
-      {activeTab === 'overview' && (
-        <Stack space={5}>
-          {/* Key Metrics */}
-          <Card padding={5} radius={3} shadow={2}>
-            <Stack space={4}>
-                             <Stack space={3}>
-                 <Flex align="center" justify="space-between">
-                   <Text size={3} weight="bold">Key Metrics</Text>
-                   <Badge tone="primary" padding={2}>
-                     Last 24 hours
-                   </Badge>
-                 </Flex>
-               </Stack>
-              
-              <Grid columns={[1, 2, 4]} gap={4}>
-                                 <Card padding={5} radius={2} shadow={1} style={{ background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)' }}>
-                   <Stack space={3}>
-                     <Flex align="center" gap={3}>
-                       <div className="p-3 bg-white/20 rounded-lg">
-                         <MessageSquare className="h-6 w-6 text-white" />
-                       </div>
-                       <Text size={4} weight="bold" style={{ color: 'white' }}>{stats.totalMessages.toLocaleString()}</Text>
-                     </Flex>
-                     <Text size={1} style={{ color: 'rgba(255,255,255,0.8)' }}>Total Messages</Text>
-                   </Stack>
-                 </Card>
-
-                                 <Card padding={5} radius={2} shadow={1} style={{ background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)' }}>
-                   <Stack space={3}>
-                     <Flex align="center" gap={3}>
-                       <div className="p-3 bg-white/20 rounded-lg">
-                         <AlertTriangle className="h-6 w-6 text-white" />
-                       </div>
-                       <Text size={4} weight="bold" style={{ color: 'white' }}>{stats.flaggedMessages.toLocaleString()}</Text>
-                     </Flex>
-                     <Text size={1} style={{ color: 'rgba(255,255,255,0.8)' }}>Flagged Messages</Text>
-                   </Stack>
-                 </Card>
-
-                                 <Card padding={5} radius={2} shadow={1} style={{ background: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)' }}>
-                   <Stack space={3}>
-                     <Flex align="center" gap={3}>
-                       <div className="p-3 bg-white/20 rounded-lg">
-                         <TrendingDown className="h-6 w-6 text-white" />
-                       </div>
-                       <Text size={4} weight="bold" style={{ color: 'white' }}>{stats.deletedMessages.toLocaleString()}</Text>
-                     </Flex>
-                     <Text size={1} style={{ color: 'rgba(255,255,255,0.8)' }}>Deleted Messages</Text>
-                   </Stack>
-                 </Card>
-
-                                 <Card padding={5} radius={2} shadow={1} style={{ background: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)' }}>
-                   <Stack space={3}>
-                     <Flex align="center" gap={3}>
-                       <div className="p-3 bg-white/20 rounded-lg">
-                         <Ban className="h-6 w-6 text-white" />
-                       </div>
-                       <Text size={4} weight="bold" style={{ color: 'white' }}>{stats.bannedUsers.toLocaleString()}</Text>
-                     </Flex>
-                     <Text size={1} style={{ color: 'rgba(255,255,255,0.8)' }}>Banned Users</Text>
-                   </Stack>
-                 </Card>
-              </Grid>
-            </Stack>
-          </Card>
-
-          {/* Additional Stats */}
-          <Grid columns={[1, 2]} gap={4}>
-            <Card padding={4} radius={2} shadow={1}>
-                               <Stack space={4}>
-                   <Stack space={2}>
-                     <Flex align="center" gap={2}>
-                       <Shield className="h-5 w-5 text-blue-600" />
-                       <Text size={2} weight="semibold">Active Reports</Text>
-                     </Flex>
-                   </Stack>
-                   <Stack space={2}>
-                     <Text size={4} weight="bold" style={{ color: '#2563eb' }}>{stats.activeReports}</Text>
-                     <Text size={1} muted>Reports requiring attention</Text>
-                   </Stack>
-                 </Stack>
-            </Card>
-
-            <Card padding={4} radius={2} shadow={1}>
-                               <Stack space={4}>
-                   <Stack space={2}>
-                     <Flex align="center" gap={2}>
-                       <TrendingUp className="h-5 w-5 text-green-600" />
-                       <Text size={2} weight="semibold">Moderation Rate</Text>
-                     </Flex>
-                   </Stack>
-                   <Stack space={2}>
-                     <Text size={4} weight="bold" style={{ color: '#059669' }}>{stats.moderationRate.toFixed(1)}%</Text>
-                     <Text size={1} muted>Content reviewed within 24h</Text>
-                   </Stack>
-                 </Stack>
-            </Card>
-          </Grid>
-
-          {/* Recent Activity */}
-          <Card padding={5} radius={3} shadow={2}>
-            <Stack space={4}>
-                             <Stack space={3}>
-                 <Flex align="center" justify="space-between">
-                   <Flex align="center" gap={2}>
-                     <Activity className="h-5 w-5 text-gray-600" />
-                     <Text size={2} weight="semibold">Recent Activity</Text>
-                   </Flex>
-                   <Badge tone="primary" padding={1}>
-                     {recentActivity.length} items
-                   </Badge>
-                 </Flex>
-               </Stack>
-              
-              <Stack space={3}>
-                {recentActivity.slice(0, 5).map((activity) => (
-                  <Card key={activity.id} padding={4} radius={2} shadow={1} style={{ 
-                    borderLeft: `4px solid ${activity.severity === 'critical' ? '#dc2626' : 
-                      activity.severity === 'high' ? '#ea580c' : 
-                      activity.severity === 'medium' ? '#d97706' : '#65a30d'}`
-                  }}>
-                                         <Flex align="center" justify="space-between">
-                       <Flex align="center" gap={4}>
-                         <div className="p-3 rounded-full" style={{ 
-                           backgroundColor: activity.severity === 'critical' ? '#fecaca' : 
-                             activity.severity === 'high' ? '#fed7aa' : 
-                             activity.severity === 'medium' ? '#fef3c7' : '#dcfce7'
-                         }}>
-                           {getActivityIcon(activity.type)}
-                         </div>
-                         <Stack space={2}>
-                           <Text size={1} weight="semibold">
-                             {activity.userName}
-                           </Text>
-                           <Text size={0} muted>{activity.reason}</Text>
-                         </Stack>
-                       </Flex>
-                       <Flex align="center" gap={4}>
-                         <Badge 
-                           tone="caution" 
-                           padding={2}
-                           style={{ 
-                             backgroundColor: getSeverityColor(activity.severity).split(' ')[0].replace('bg-', ''),
-                             color: getSeverityColor(activity.severity).split(' ')[1].replace('text-', '')
-                           }}
-                         >
-                           {activity.severity}
-                         </Badge>
-                         <Text size={0} muted>
-                           {formatTimeAgo(activity.timestamp)}
-                         </Text>
-                       </Flex>
-                     </Flex>
-                  </Card>
-                ))}
-              </Stack>
-              
-              {recentActivity.length > 5 && (
-                <Flex justify="center">
-                  <Button mode="ghost" tone="primary" text="View All Activity" />
+        <Card padding={3} radius={2} shadow={1}>
+          <Flex gap={2} wrap="wrap">
+            {[
+              { id: 'overview', label: 'Overview' },
+              { id: 'settings', label: 'Settings' },
+              { id: 'test', label: 'Test Tools' },
+              { id: 'activity', label: 'Activity Log' },
+            ].map((tab) => (
+              <Button
+                key={tab.id}
+                mode={activeTab === tab.id ? 'default' : 'ghost'}
+                tone={activeTab === tab.id ? 'primary' : 'default'}
+                onClick={() => setActiveTab(tab.id as typeof activeTab)}
+                padding={3}
+                style={
+                  activeTab === tab.id
+                    ? { borderBottom: '2px solid var(--card-focus-ring-color, #2276fc)' }
+                    : undefined
+                }
+              >
+                <Flex align="center" gap={2}>
+                  {getTabIcon(tab.id)}
+                  <Text size={1} weight="semibold">{tab.label}</Text>
                 </Flex>
-              )}
-            </Stack>
-          </Card>
-        </Stack>
-      )}
+              </Button>
+            ))}
+          </Flex>
+        </Card>
 
-      {activeTab === 'settings' && (
-        <ModerationSettings />
-      )}
+        {activeTab === 'overview' && (
+          <Stack space={5}>
+            <Card padding={5} radius={3} shadow={2}>
+              <Stack space={4}>
+                <Flex align="center" justify="space-between">
+                  <Text size={3} weight="bold">Key Metrics</Text>
+                  <Badge tone="primary">Last 24 hours</Badge>
+                </Flex>
 
-      {activeTab === 'test' && (
-        <ModerationTest />
-      )}
+                <Grid columns={[1, 2, 4]} gap={4}>
+                  <Card padding={4} radius={3} shadow={2} tone="positive">
+                    <Stack space={3}>
+                      <Flex align="center" gap={3}>
+                        <MessageSquare style={{ width: 24, height: 24 }} />
+                        <Text size={4} weight="bold">{stats.moderationEvents.toLocaleString()}</Text>
+                      </Flex>
+                      <Text size={1} muted>Moderation Events</Text>
+                    </Stack>
+                  </Card>
 
-      {activeTab === 'activity' && (
-        <Card padding={5} radius={3} shadow={2}>
-          <Stack space={4}>
-                         <Stack space={3}>
-               <Flex align="center" justify="space-between">
-                 <Flex align="center" gap={2}>
-                   <Activity className="h-5 w-5 text-gray-600" />
-                   <Text size={2} weight="semibold">Moderation Activity Log</Text>
-                 </Flex>
-                 <Flex gap={2}>
-                   <Button mode="ghost" icon={Filter} text="Filter" />
-                   <Button mode="ghost" icon={Eye} text="Export" />
-                 </Flex>
-               </Flex>
-             </Stack>
-            
-            <Card padding={4} radius={2} shadow={1} tone="caution">
-              <Stack space={3}>
-                <Text size={1} weight="semibold">📊 Comprehensive Activity Tracking</Text>
-                <Text size={1} muted>
-                  This section provides detailed information about all moderation actions,
-                  including timestamps, user information, content analysis results,
-                  and actions taken. The data is fetched from Sanity and displayed
-                  in a comprehensive log format with advanced filtering capabilities.
-                </Text>
-                <Inline space={2}>
-                  <Badge tone="primary">Real-time</Badge>
-                  <Badge tone="caution">Filterable</Badge>
-                  <Badge tone="positive">Exportable</Badge>
-                </Inline>
+                  <Card padding={4} radius={3} shadow={2} tone="caution">
+                    <Stack space={3}>
+                      <Flex align="center" gap={3}>
+                        <TrendingDown style={{ width: 24, height: 24 }} />
+                        <Text size={4} weight="bold">{stats.flaggedMessages.toLocaleString()}</Text>
+                      </Flex>
+                      <Text size={1} muted>Flagged Messages</Text>
+                    </Stack>
+                  </Card>
+
+                  <Card padding={4} radius={3} shadow={2} tone="critical">
+                    <Stack space={3}>
+                      <Flex align="center" gap={3}>
+                        <Ban style={{ width: 24, height: 24 }} />
+                        <Text size={4} weight="bold">{stats.deletedMessages.toLocaleString()}</Text>
+                      </Flex>
+                      <Text size={1} muted>Deleted Messages</Text>
+                    </Stack>
+                  </Card>
+
+                  <Card padding={4} radius={3} shadow={2}>
+                    <Stack space={3}>
+                      <Flex align="center" gap={3}>
+                        <Ban style={{ width: 24, height: 24 }} />
+                        <Text size={4} weight="bold">{stats.bannedUsers.toLocaleString()}</Text>
+                      </Flex>
+                      <Text size={1} muted>Banned Users (all time)</Text>
+                    </Stack>
+                  </Card>
+                </Grid>
+              </Stack>
+            </Card>
+
+            <Grid columns={[1, 2]} gap={4}>
+              <Card padding={4} radius={3} shadow={2}>
+                <Stack space={3}>
+                  <Flex align="center" gap={2}>
+                    <Shield style={{ width: 20, height: 20 }} />
+                    <Text size={2} weight="semibold">Active Reports</Text>
+                  </Flex>
+                  <Text size={4} weight="bold">{stats.activeReports}</Text>
+                  <Text size={1} muted>Pending reports awaiting triage</Text>
+                  {stats.activeReports > 0 && (
+                    <Button
+                      as="a"
+                      href="/studio/structure/report-triage"
+                      mode="default"
+                      tone="primary"
+                      text="Open Report Triage"
+                    />
+                  )}
+                </Stack>
+              </Card>
+
+              <Card padding={4} radius={3} shadow={2}>
+                <Stack space={3}>
+                  <Flex align="center" gap={2}>
+                    <TrendingUp style={{ width: 20, height: 20 }} />
+                    <Text size={2} weight="semibold">Moderation Rate</Text>
+                  </Flex>
+                  <Text size={4} weight="bold">{stats.moderationRate.toFixed(1)}%</Text>
+                  <Text size={1} muted>Content flagged or banned (comments + startups)</Text>
+                </Stack>
+              </Card>
+            </Grid>
+
+            <Card padding={5} radius={3} shadow={2}>
+              <Stack space={4}>
+                <Flex align="center" justify="space-between">
+                  <Flex align="center" gap={2}>
+                    <Activity style={{ width: 20, height: 20 }} />
+                    <Text size={2} weight="semibold">Recent Activity</Text>
+                  </Flex>
+                  <Badge tone="primary">{recentActivity.length} items</Badge>
+                </Flex>
+
+                {recentActivity.length === 0 ? (
+                  <PanelEmpty
+                    title="No recent activity"
+                    description="Moderation events will appear here when actions are taken."
+                  />
+                ) : (
+                  <Stack space={2}>
+                    {recentActivity.slice(0, 5).map((activity) => (
+                      <ActivityRow key={activity.id} activity={activity} compact />
+                    ))}
+                  </Stack>
+                )}
+
+                {recentActivity.length > 0 && (
+                  <Flex justify="center">
+                    <Button
+                      mode="ghost"
+                      tone="primary"
+                      text="View All Activity"
+                      onClick={() => setActiveTab('activity')}
+                    />
+                  </Flex>
+                )}
               </Stack>
             </Card>
           </Stack>
-        </Card>
-      )}
+        )}
+      </PanelShell>
+
+      {activeTab === 'settings' && <ModerationSettings />}
+      {activeTab === 'test' && <ModerationTest />}
+      {activeTab === 'activity' && <ModerationActivityLog />}
     </Stack>
   )
-} 
+}

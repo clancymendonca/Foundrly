@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/auth'
+import { getAdminSession } from '@/lib/admin-auth'
 import { client } from '@/sanity/lib/client'
 import { writeClient } from '@/sanity/lib/write-client'
 import { calculateBanEndDate } from '@/sanity/lib/moderation'
@@ -10,11 +10,23 @@ import {
 } from '@/sanity/lib/strike-system'
 import { logModerationActivity } from '@/sanity/lib/moderation-mutations'
 
+/**
+ * Handles an admin request to apply a ban to a reported user.
+ *
+ * Validates the admin session and request body, computes ban duration via the strike system,
+ * updates the reported user's ban state and ban history, optionally updates the related report,
+ * and logs the moderation activity.
+ *
+ * @param request - The incoming NextRequest containing JSON with `reportedUserId`, `banDuration`, `reason`, and optional `reportId`
+ * @returns A NextResponse with JSON:
+ *          - On success: `{ success: true, message, banDetails: { duration, isPermanent, strikeNumber, banEndDate, reason }, user }`
+ *          - On error: `{ error: string }` with an appropriate HTTP status code (401, 400, 404, or 500)
+ */
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth()
-    
-    if (!session?.user?.email) {
+    const session = await getAdminSession()
+
+    if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -114,7 +126,8 @@ export async function POST(request: NextRequest) {
       reason: reason,
       severity: strikeResult.isPermanent ? 'critical' : 'high',
       itemId: reportId,
-      itemType: 'report'
+      itemType: 'report',
+      source: 'studio',
     })
 
     return NextResponse.json({

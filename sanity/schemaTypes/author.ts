@@ -1,5 +1,4 @@
 import { defineField, defineType } from "sanity";
-import { StrikeSystemInput } from "../components/StrikeSystemInput";
 
 export const author = defineType({
   name: "author",
@@ -119,74 +118,18 @@ export const author = defineType({
       validation: (Rule) => Rule.min(0).max(3),
       description: "Current number of strikes (0-3, 3 = permanent ban)",
     }),
-    defineField({
-      name: "strikeSystem",
-      type: "object",
-      components: {
-        input: StrikeSystemInput,
-      },
-      fields: [
-        {
-          name: "isBanned",
-          type: "boolean",
-          readOnly: true,
-        },
-        {
-          name: "bannedUntil",
-          type: "datetime",
-          readOnly: true,
-        },
-        {
-          name: "strikeCount",
-          type: "number",
-          readOnly: true,
-        },
-        {
-          name: "banHistory",
-          type: "array",
-          of: [
-            {
-              type: "object",
-              fields: [
-                {
-                  name: "timestamp",
-                  type: "datetime",
-                },
-                {
-                  name: "duration",
-                  type: "string",
-                },
-                {
-                  name: "reason",
-                  type: "string",
-                },
-                {
-                  name: "reportId",
-                  type: "string",
-                },
-                {
-                  name: "strikeNumber",
-                  type: "number",
-                },
-              ],
-            },
-          ],
-          readOnly: true,
-        },
-      ],
-      description: "3-Strike System Management",
-    }),
   ],
   preview: {
     select: {
       title: "name",
       subtitle: "username",
+      isBanned: "isBanned",
     },
     prepare(selection) {
-      const { title, subtitle } = selection;
+      const { title, subtitle, isBanned } = selection;
       return {
         title: title || "Unknown Author",
-        subtitle: subtitle ? `@${subtitle}` : "No username",
+        subtitle: `${subtitle ? `@${subtitle}` : "No username"}${isBanned ? " (Banned)" : ""}`,
         media: () => "👤",
       };
     },
