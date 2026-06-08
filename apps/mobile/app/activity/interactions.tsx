@@ -3,6 +3,7 @@ import { FlatList, Text, View } from "react-native";
 import { AppShell } from "@/components/layout/AppShell";
 import { MobilePageHeader } from "@/components/layout/MobilePageHeader";
 import { apiFetch } from "@/lib/api-client";
+import { screenStyles } from "@/lib/screen-styles";
 
 export default function ActivityInteractionsScreen() {
   const { data } = useQuery({
@@ -18,14 +19,20 @@ export default function ActivityInteractionsScreen() {
       <FlatList
         data={Array.isArray(items) ? items : []}
         keyExtractor={(item: any, i) => item._id || String(i)}
-        contentContainerClassName="p-4 pb-24"
+        contentContainerStyle={screenStyles.listContent}
         renderItem={({ item }: any) => (
-          <View className="mb-2 rounded-lg border border-gray-100 p-3">
-            <Text className="font-medium">{item.action || item.type || "Activity"}</Text>
-            <Text className="text-sm text-gray-500">{item.description || item.details}</Text>
+          <View style={screenStyles.card}>
+            <Text style={screenStyles.cardTitle}>
+              {item.action || item.type || "Activity"}
+            </Text>
+            <Text style={screenStyles.cardDesc}>
+              {item.description || item.details}
+            </Text>
           </View>
         )}
-        ListEmptyComponent={<Text className="text-center text-gray-500">No interactions yet</Text>}
+        ListEmptyComponent={
+          <Text style={screenStyles.empty}>No interactions yet</Text>
+        }
       />
     </AppShell>
   );

@@ -13,6 +13,8 @@ import Toast from "react-native-toast-message";
 import { AppShell } from "@/components/layout/AppShell";
 import { MobilePageHeader } from "@/components/layout/MobilePageHeader";
 import { apiFetch } from "@/lib/api-client";
+import { screenStyles } from "@/lib/screen-styles";
+import { theme } from "@/lib/theme";
 import type { Startup } from "@foundrly/shared";
 
 export default function EditStartupScreen() {
@@ -55,7 +57,7 @@ export default function EditStartupScreen() {
   if (isLoading) {
     return (
       <AppShell>
-        <ActivityIndicator className="mt-8" color="#4E71FF" />
+        <ActivityIndicator style={screenStyles.loader} color={theme.primary} />
       </AppShell>
     );
   }
@@ -63,7 +65,7 @@ export default function EditStartupScreen() {
   return (
     <AppShell>
       <MobilePageHeader title="Edit Startup" backHref={`/startup/${id}`} />
-      <ScrollView className="flex-1 p-4 pb-24">
+      <ScrollView style={screenStyles.scroll} contentContainerStyle={screenStyles.scrollContent}>
         {[
           { label: "Title", value: title, set: setTitle },
           { label: "Description", value: description, set: setDescription, multiline: true },
@@ -71,21 +73,18 @@ export default function EditStartupScreen() {
           { label: "Image URL", value: link, set: setLink },
           { label: "Pitch", value: pitch, set: setPitch, multiline: true },
         ].map((field) => (
-          <View key={field.label} className="mb-4">
-            <Text className="mb-1 font-medium">{field.label}</Text>
+          <View key={field.label} style={screenStyles.field}>
+            <Text style={screenStyles.label}>{field.label}</Text>
             <TextInput
-              className="rounded-lg border border-gray-200 px-4 py-3"
+              style={screenStyles.input}
               value={field.value}
               onChangeText={field.set}
               multiline={field.multiline}
             />
           </View>
         ))}
-        <Pressable
-          onPress={() => mutation.mutate()}
-          className="rounded-lg bg-primary py-3"
-        >
-          <Text className="text-center font-bold text-white">Save changes</Text>
+        <Pressable onPress={() => mutation.mutate()} style={screenStyles.primaryBtn}>
+          <Text style={screenStyles.primaryBtnText}>Save changes</Text>
         </Pressable>
       </ScrollView>
     </AppShell>

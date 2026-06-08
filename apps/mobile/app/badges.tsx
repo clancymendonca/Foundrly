@@ -1,10 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { useLocalSearchParams } from "expo-router";
-import { ActivityIndicator, FlatList, Text, View } from "react-native";
+import { ActivityIndicator, FlatList, StyleSheet, Text, View } from "react-native";
 import { AppShell } from "@/components/layout/AppShell";
 import { MobilePageHeader } from "@/components/layout/MobilePageHeader";
 import { useAuth } from "@/lib/auth-context";
 import { sanityClient } from "@/lib/sanity";
+import { screenStyles } from "@/lib/screen-styles";
+import { theme } from "@/lib/theme";
 
 export default function BadgesScreen() {
   const { user } = useAuth();
@@ -29,24 +31,37 @@ export default function BadgesScreen() {
     <AppShell>
       <MobilePageHeader title="My Badges" />
       {isLoading ? (
-        <ActivityIndicator className="mt-8" color="#4E71FF" />
+        <ActivityIndicator style={screenStyles.loader} color={theme.primary} />
       ) : (
         <FlatList
           data={data ?? []}
           keyExtractor={(item: any) => item._id}
-          contentContainerClassName="p-4 pb-24"
+          contentContainerStyle={screenStyles.listContent}
           renderItem={({ item }: any) => (
-            <View className="mb-3 rounded-lg border border-gray-100 p-4">
-              <Text className="text-lg font-bold">{item.badge?.name}</Text>
-              <Text className="text-gray-600">{item.badge?.description}</Text>
-              <Text className="mt-1 text-xs text-primary">{item.badge?.tier}</Text>
+            <View style={screenStyles.card}>
+              <Text style={styles.badgeName}>{item.badge?.name}</Text>
+              <Text style={screenStyles.cardDesc}>{item.badge?.description}</Text>
+              <Text style={styles.tier}>{item.badge?.tier}</Text>
             </View>
           )}
-          ListEmptyComponent={
-            <Text className="text-center text-gray-500">No badges yet</Text>
-          }
+          ListEmptyComponent={<Text style={screenStyles.empty}>No badges yet</Text>}
         />
       )}
     </AppShell>
   );
 }
+
+const styles = StyleSheet.create({
+  badgeName: {
+    fontFamily: theme.fontFamily.bold,
+    fontSize: 18,
+    color: theme.black,
+  },
+  tier: {
+    marginTop: 4,
+    fontFamily: theme.fontFamily.medium,
+    fontSize: 12,
+    color: theme.primary,
+    textTransform: "capitalize",
+  },
+});

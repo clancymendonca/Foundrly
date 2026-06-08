@@ -16,10 +16,12 @@
         "backgroundColor": "#4E71FF",
         "foregroundImage": "./assets/images/android-icon-foreground.png"
       },
-      "package": "com.foundrly.app"
+      "package": "com.foundrly.app",
+      "softwareKeyboardLayoutMode": "resize"
     },
     "plugins": [
       "expo-router",
+      "@react-native-google-signin/google-signin",
       [
         "expo-splash-screen",
         {
@@ -30,7 +32,8 @@
       ]
     ],
     "experiments": {
-      "typedRoutes": true
+      "typedRoutes": true,
+      "autolinkingModuleResolution": true
     },
     "extra": {
       "eas": {

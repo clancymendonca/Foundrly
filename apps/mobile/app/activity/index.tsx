@@ -3,6 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Pressable, Text, View } from "react-native";
 import { AppShell } from "@/components/layout/AppShell";
 import { MobilePageHeader } from "@/components/layout/MobilePageHeader";
+import { screenStyles } from "@/lib/screen-styles";
 
 const SECTIONS = [
   { href: "/activity/interactions", label: "Interactions", desc: "Likes, dislikes, comments" },
@@ -13,13 +14,13 @@ export default function ActivityHubScreen() {
   return (
     <AppShell>
       <MobilePageHeader title="Your Activity" />
-      <View className="p-4 pb-24">
+      <View style={screenStyles.scrollContent}>
         {SECTIONS.map((s) => (
           <Link key={s.href} href={s.href as any} asChild>
-            <Pressable className="mb-3 flex-row items-center justify-between rounded-lg border border-gray-100 p-4">
+            <Pressable style={[screenStyles.card, { flexDirection: "row", alignItems: "center", justifyContent: "space-between" }]}>
               <View>
-                <Text className="font-semibold">{s.label}</Text>
-                <Text className="text-sm text-gray-500">{s.desc}</Text>
+                <Text style={screenStyles.cardTitle}>{s.label}</Text>
+                <Text style={screenStyles.cardDesc}>{s.desc}</Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color="#999" />
             </Pressable>

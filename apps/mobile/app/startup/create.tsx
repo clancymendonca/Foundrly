@@ -14,6 +14,8 @@ import { AppShell } from "@/components/layout/AppShell";
 import { MobilePageHeader } from "@/components/layout/MobilePageHeader";
 import { apiFetch } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
+import { screenStyles } from "@/lib/screen-styles";
+import { theme } from "@/lib/theme";
 
 export default function CreateStartupScreen() {
   const { user, signIn } = useAuth();
@@ -43,10 +45,12 @@ export default function CreateStartupScreen() {
     return (
       <AppShell>
         <MobilePageHeader title="Create Startup" />
-        <View className="flex-1 items-center justify-center p-6">
-          <Text className="mb-4 text-center">Sign in to create a startup</Text>
-          <Pressable onPress={signIn} className="rounded-lg bg-primary px-6 py-3">
-            <Text className="text-white">Login with GitHub</Text>
+        <View style={screenStyles.center}>
+          <Text style={{ marginBottom: 16, textAlign: "center" }}>
+            Sign in to create a startup
+          </Text>
+          <Pressable onPress={signIn} style={screenStyles.primaryBtn}>
+            <Text style={screenStyles.primaryBtnText}>Sign in</Text>
           </Pressable>
         </View>
       </AppShell>
@@ -56,7 +60,7 @@ export default function CreateStartupScreen() {
   return (
     <AppShell>
       <MobilePageHeader title="Create Startup" />
-      <ScrollView className="flex-1 p-4 pb-24">
+      <ScrollView style={screenStyles.scroll} contentContainerStyle={screenStyles.scrollContent}>
         {[
           { label: "Title", value: title, set: setTitle },
           { label: "Description", value: description, set: setDescription, multiline: true },
@@ -64,10 +68,10 @@ export default function CreateStartupScreen() {
           { label: "Image URL", value: link, set: setLink },
           { label: "Pitch (Markdown)", value: pitch, set: setPitch, multiline: true },
         ].map((field) => (
-          <View key={field.label} className="mb-4">
-            <Text className="mb-1 font-medium">{field.label}</Text>
+          <View key={field.label} style={screenStyles.field}>
+            <Text style={screenStyles.label}>{field.label}</Text>
             <TextInput
-              className="rounded-lg border border-gray-200 px-4 py-3"
+              style={screenStyles.input}
               value={field.value}
               onChangeText={field.set}
               multiline={field.multiline}
@@ -78,12 +82,12 @@ export default function CreateStartupScreen() {
         <Pressable
           onPress={() => mutation.mutate()}
           disabled={mutation.isPending}
-          className="mt-4 items-center rounded-lg bg-primary py-3"
+          style={[screenStyles.primaryBtn, { marginTop: 16 }]}
         >
           {mutation.isPending ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color={theme.white} />
           ) : (
-            <Text className="font-bold text-white">Create Startup</Text>
+            <Text style={screenStyles.primaryBtnText}>Create Startup</Text>
           )}
         </Pressable>
       </ScrollView>
