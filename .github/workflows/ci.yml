@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main, master]
+    branches: [main, master, feat/react-native-monorepo, 'feat/rn/**']
   pull_request:
-    branches: [main, master]
+    branches: [main, master, feat/react-native-monorepo]
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -15,8 +15,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CI: 'true'
-      # Placeholders so `next build` and smoke tests can run without real secrets.
-      # Override with GitHub Actions secrets for production-faithful integration tests.
       NEXT_PUBLIC_SANITY_PROJECT_ID: abc12345
       NEXT_PUBLIC_SANITY_DATASET: production
       NEXT_PUBLIC_SANITY_API_VERSION: '2025-01-02'
@@ -25,13 +23,13 @@ jobs:
       NEXTAUTH_URL: http://localhost:3000
       AUTH_GITHUB_ID: ci_github_oauth_client_id
       AUTH_GITHUB_SECRET: ci_github_oauth_client_secret_minimum_length
+      MOBILE_JWT_SECRET: ci_mobile_jwt_secret_minimum_thirty_two_chars
       GEMINI_API_KEY: fakegeminikeyforcibuildonlyxxxxxxxx
       GROQ_API_KEY: ''
       PINECONE_API_KEY: pinecone-ci-placeholder-key
       NEXT_PUBLIC_STREAM_API_KEY: fake-stream-public-key-for-ci
       STREAM_API_KEY: fake-stream-api-key-for-ci
       STREAM_API_SECRET: fake-stream-api-secret-for-ci
-      # Valid-format throwaway VAPID pair for web-push module init (CI only).
       NEXT_PUBLIC_VAPID_PUBLIC_KEY: BD-bulxhnGrxJyWQqG98PU6ghP0s4xB4OMlW0de2dph3pygBWAXQ4QmmCkzaRB9DDDYzcghI37T-T98ua-qzSE0
       VAPID_PRIVATE_KEY: SbB57czxVCausqtXbg58CcEcYAiiWYDsSfvS4tu3Tns
 
@@ -47,19 +45,20 @@ jobs:
         run: npm ci
 
       - name: ESLint
-        run: npm run lint
+        run: npm run lint -w @foundrly/web
 
-      - name: Typecheck (tests + Vitest config)
+      - name: Typecheck
         run: npm run typecheck
 
       - name: Unit tests
-        run: npm run test:run
+        run: npm run test:run -w @foundrly/web
 
       - name: Production build
-        # Use `npx next build` so CI does not run `prebuild` / Sanity typegen (requires a real Sanity project).
-        run: npx next build
+        working-directory: apps/web
+        run: npx next build --webpack
 
       - name: Start server for Studio smoke tests
+        working-directory: apps/web
         run: |
           npx next start -p 3000 &
           echo "Waiting for server on :3000..."
@@ -76,4 +75,20 @@ jobs:
           done
 
       - name: Studio smoke tests
-        run: node scripts/studio-e2e-test.mjs --ci http://localhost:3000
+        run: node apps/web/scripts/studio-e2e-test.mjs --ci http://localhost:3000
+
+  mobile-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Mobile typecheck
+        run: npm run typecheck -w @foundrly/mobile --if-present

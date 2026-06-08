@@ -14,12 +14,34 @@
 
 Additional topics (badges, notifications, analytics, Docker, Vercel, AI, APIs) are linked from the index above.
 
-## 🚀 **Quick Start**
+## Monorepo structure
+
+```
+Foundrly/
+├── apps/
+│   ├── web/      # Next.js web app (@foundrly/web)
+│   └── mobile/   # Expo React Native app (@foundrly/mobile)
+├── packages/
+│   └── shared/   # Shared types, theme, validation (@foundrly/shared)
+└── docs/
+```
+
+## Quick Start
 
 ```bash
-# Set up environment variables
-cp .env.example .env.local
+# Install all workspaces
+npm install
+
+# Web app
+cp .env.example apps/web/.env.local   # or keep .env.local at apps/web
+npm run dev
+
+# Mobile app (requires web API running)
+cp apps/mobile/.env.example apps/mobile/.env
+npm run dev:mobile
 ```
+
+See [apps/mobile/docs/MOBILE_SETUP.md](apps/mobile/docs/MOBILE_SETUP.md) for GitHub OAuth and push setup.
 ## Overview
 
 
