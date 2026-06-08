@@ -64,4 +64,26 @@ export const AUTHOR_BY_ID_QUERY = `*[_type == "author" && _id == $id][0]{
   following[]->{ _id, name, username, image }
 }`;
 
+export const AUTHOR_BY_FIREBASE_UID_QUERY = `*[_type == "author" && id == $id][0]{
+  _id,
+  id,
+  name,
+  username,
+  email,
+  image,
+  bio,
+  followers[]->{ _id, name, username, image },
+  following[]->{ _id, name, username, image }
+}`;
+
+export const AUTHOR_BY_EMAIL_QUERY = `*[_type == "author" && email == $email][0]{
+  _id,
+  id,
+  name,
+  username,
+  email,
+  image,
+  bio
+}`;
+
 export const STARTUPS_BY_AUTHOR_QUERY = `*[_type == "startup" && author._ref == $id] | order(_createdAt desc) { ${STARTUP_CARD_FIELDS} }`;
