@@ -40,18 +40,28 @@ export async function apiFetch<T>(
   const data = await res.json().catch(() => ({}));
 
   if (!res.ok) {
-    throw new ApiError(data.error || res.statusText, res.status);
+    const msg =
+      data.details ||
+      data.error ||
+      (typeof data === "object" && data !== null && "message" in data
+        ? String((data as { message?: string }).message)
+        : res.statusText);
+    throw new ApiError(
+      msg.includes("FIREBASE") || msg.includes("firebase")
+        ? "Server Firebase admin is not configured. Add FIREBASE_* to apps/web/.env.local."
+        : msg,
+      res.status,
+    );
   }
 
   return data as T;
 }
 
-export async function mobileGithubAuth(
-  code: string,
-  redirectUri: string,
+export async function mobileFirebaseAuth(
+  idToken: string,
 ): Promise<{ token: string; user: SessionUser }> {
-  return apiFetch("/api/auth/mobile/github", {
+  return apiFetch("/api/auth/mobile/firebase", {
     method: "POST",
-    body: JSON.stringify({ code, redirectUri }),
+    body: JSON.stringify({ idToken }),
   });
 }

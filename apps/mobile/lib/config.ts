@@ -14,7 +14,11 @@ export const SANITY_DATASET =
 export const SANITY_API_VERSION =
   process.env.EXPO_PUBLIC_SANITY_API_VERSION || "2025-01-02";
 
-export const GITHUB_CLIENT_ID = process.env.EXPO_PUBLIC_GITHUB_CLIENT_ID || "";
+export const GOOGLE_WEB_CLIENT_ID =
+  process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || "";
+
+export const GITHUB_CLIENT_ID =
+  process.env.EXPO_PUBLIC_GITHUB_CLIENT_ID || "";
 
 export const APP_SCHEME =
   Constants.expoConfig?.scheme?.toString() || "foundrly";
