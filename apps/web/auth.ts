@@ -1,133 +1,60 @@
-import NextAuth from "next-auth"
-import GitHub from "next-auth/providers/github"
-import { client } from "./sanity/lib/client";
-import { AUTHOR_BY_GITHUB_ID_QUERY } from "./sanity/lib/queries";
-import { writeClient } from "./sanity/lib/write-client";
- 
+import NextAuth from "next-auth";
+import Credentials from "next-auth/providers/credentials";
+import {
+  upsertAuthorFromFirebase,
+  verifyFirebaseIdToken,
+} from "./lib/firebase-auth";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  providers: [GitHub],
+  providers: [
+    Credentials({
+      id: "firebase",
+      name: "Firebase",
+      credentials: {
+        idToken: { label: "ID Token", type: "text" },
+      },
+      async authorize(credentials) {
+        const idToken = credentials?.idToken;
+        if (!idToken || typeof idToken !== "string") {
+          return null;
+        }
+
+        try {
+          const decoded = await verifyFirebaseIdToken(idToken);
+          const author = await upsertAuthorFromFirebase(decoded);
+
+          if (!author?._id) {
+            return null;
+          }
+
+          return {
+            id: author._id,
+            name: author.name ?? decoded.name ?? null,
+            email: author.email ?? decoded.email ?? null,
+            image: author.image ?? decoded.picture ?? null,
+          };
+        } catch (error) {
+          console.error("Firebase credentials authorize error:", error);
+          return null;
+        }
+      },
+    }),
+  ],
+  pages: {
+    signIn: "/login",
+  },
   callbacks: {
-    async signIn({
-      user: { name, email, image },
-      profile: { id, login, bio },
-    }) {
-      const existingUser = await client
-        .withConfig({ useCdn: false })
-        .fetch(AUTHOR_BY_GITHUB_ID_QUERY, {
-          id,
-        });
-
-      if (!existingUser) {
-        await writeClient.create({
-          _type: "author",
-          id,
-          name,
-          username: login,
-          email,
-          image,
-          bio: bio || "",
-          followers: [],
-          following: [],
-        });
+    async jwt({ token, user }) {
+      if (user?.id) {
+        token.id = user.id;
       }
-
-      // Upsert user in Stream Chat
-      try {
-        await fetch(`${process.env.NEXTAUTH_URL || "http://localhost:3000"}/api/chat/upsert-user`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id, name, image }),
-        });
-      } catch (e) {
-        // Log but don't block sign in
-        console.error("Stream Chat upsert-user error", e);
-      }
-
-      return true;
-    },
-    async jwt({ token, account, profile }) {
-      if (account && profile) {
-        const user = await client
-          .withConfig({ useCdn: false })
-          .fetch(AUTHOR_BY_GITHUB_ID_QUERY, {
-            id: profile?.id,
-          });
-
-        token.id = user?._id;
-      }
-
       return token;
     },
     async session({ session, token }) {
-      if (session.user) {
+      if (session.user && token.id) {
         session.user.id = token.id as string;
       }
       return session;
     },
   },
 });
-
-// Export authOptions for API routes that need it
-export const authOptions = {
-  providers: [GitHub],
-  callbacks: {
-    async signIn({
-      user: { name, email, image },
-      profile: { id, login, bio },
-    }) {
-      const existingUser = await client
-        .withConfig({ useCdn: false })
-        .fetch(AUTHOR_BY_GITHUB_ID_QUERY, {
-          id,
-        });
-
-      if (!existingUser) {
-        await writeClient.create({
-          _type: "author",
-          id,
-          name,
-          username: login,
-          email,
-          image,
-          bio: bio || "",
-          followers: [],
-          following: [],
-        });
-      }
-
-      // Upsert user in Stream Chat
-      try {
-        await fetch(`${process.env.NEXTAUTH_URL || "http://localhost:3000"}/api/chat/upsert-user`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id, name, image }),
-        });
-      } catch (e) {
-        // Log but don't block sign in
-        console.error("Stream Chat upsert-user error", e);
-      }
-
-      return true;
-    },
-    async jwt({ token, account, profile }) {
-      if (account && profile) {
-        const user = await client
-          .withConfig({ useCdn: false })
-          .fetch(AUTHOR_BY_GITHUB_ID_QUERY, {
-            id: profile?.id,
-          });
-
-        token.id = user?._id;
-      }
-
-      return token;
-    },
-    async session({ session, token }) {
-      if (session.user) {
-        session.user.id = token.id as string;
-      }
-      return session;
-    },
-  },
-};
