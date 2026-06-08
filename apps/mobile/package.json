@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@expo/config-plugins": "~56.0.0",
     "@expo/vector-icons": "^15.0.3",
     "@foundrly/shared": "*",
     "@react-native-async-storage/async-storage": "2.2.0",
