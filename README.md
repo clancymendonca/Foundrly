@@ -41,7 +41,7 @@ cp apps/mobile/.env.example apps/mobile/.env
 npm run dev:mobile
 ```
 
-See [apps/mobile/docs/MOBILE_SETUP.md](apps/mobile/docs/MOBILE_SETUP.md) for GitHub OAuth and push setup.
+See [apps/mobile/docs/MOBILE_SETUP.md](apps/mobile/docs/MOBILE_SETUP.md) for Firebase Auth and push setup.
 ## Overview
 
 
@@ -62,7 +62,7 @@ See [apps/mobile/docs/MOBILE_SETUP.md](apps/mobile/docs/MOBILE_SETUP.md) for Git
   - **Language**: TypeScript
   - **Styling**: Tailwind CSS
   - **CMS**: Sanity v3
-  - **Authentication**: NextAuth.js v5 (beta) with GitHub provider
+  - **Authentication**: Firebase Auth (Google, email, GitHub) + NextAuth.js v5 session bridge on web; Firebase + JWT on mobile
   - **File Storage**: Vercel Blob (prod) / Local filesystem (dev)
   - **Observability**: Sentry
   - **UI Components**: Radix UI
@@ -103,8 +103,13 @@ See [apps/mobile/docs/MOBILE_SETUP.md](apps/mobile/docs/MOBILE_SETUP.md) for Git
     NEXT_PUBLIC_SANITY_PROJECT_ID=your_project_id
     NEXT_PUBLIC_SANITY_DATASET=production
     SANITY_API_TOKEN=your_api_token
-    NEXTAUTH_SECRET=your_nextauth_secret
+    AUTH_SECRET=your_auth_secret_minimum_32_characters
     NEXTAUTH_URL=http://localhost:3000
+    FIREBASE_PROJECT_ID=your_firebase_project_id
+    FIREBASE_CLIENT_EMAIL=your_service_account_email
+    FIREBASE_PRIVATE_KEY=your_service_account_private_key
+    NEXT_PUBLIC_FIREBASE_API_KEY=your_firebase_api_key
+    NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
     BLOB_READ_WRITE_TOKEN=your_blob_token
     ```
 

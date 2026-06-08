@@ -83,6 +83,7 @@ export const STARTUP_VIEWS_QUERY = defineQuery(`
     }
 `);
 
+/** @deprecated Use AUTHOR_BY_FIREBASE_UID_QUERY — kept for typegen compatibility */
 export const AUTHOR_BY_GITHUB_ID_QUERY = defineQuery(`
 *[_type == "author" && id == $id][0]{
     _id,
@@ -94,6 +95,32 @@ export const AUTHOR_BY_GITHUB_ID_QUERY = defineQuery(`
     bio,
     followers[]->{ _id, name, username, image },
     following[]->{ _id, name, username, image }
+}
+`);
+
+export const AUTHOR_BY_FIREBASE_UID_QUERY = defineQuery(`
+*[_type == "author" && id == $id][0]{
+    _id,
+    id,
+    name,
+    username,
+    email,
+    image,
+    bio,
+    followers[]->{ _id, name, username, image },
+    following[]->{ _id, name, username, image }
+}
+`);
+
+export const AUTHOR_BY_EMAIL_QUERY = defineQuery(`
+*[_type == "author" && email == $email][0]{
+    _id,
+    id,
+    name,
+    username,
+    email,
+    image,
+    bio
 }
 `);
 

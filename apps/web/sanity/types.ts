@@ -206,6 +206,55 @@ export type PushSubscription = {
   isActive?: boolean;
 };
 
+export type Notification = {
+  _id: string;
+  _type: "notification";
+  _createdAt: string;
+  _updatedAt: string;
+  _rev: string;
+  type?: "follow" | "comment" | "reply" | "like" | "comment_like" | "report" | "system" | "mention" | "interested_submission";
+  title?: string;
+  message?: string;
+  recipient?: {
+    _ref: string;
+    _type: "reference";
+    _weak?: boolean;
+    [internalGroqTypeReferenceTo]?: "author";
+  };
+  sender?: {
+    _ref: string;
+    _type: "reference";
+    _weak?: boolean;
+    [internalGroqTypeReferenceTo]?: "author";
+  };
+  startup?: {
+    _ref: string;
+    _type: "reference";
+    _weak?: boolean;
+    [internalGroqTypeReferenceTo]?: "startup";
+  };
+  comment?: {
+    _ref: string;
+    _type: "reference";
+    _weak?: boolean;
+    [internalGroqTypeReferenceTo]?: "comment";
+  };
+  actionUrl?: string;
+  interestedSubmissionId?: string;
+  isRead?: boolean;
+  readAt?: string;
+  metadata?: {
+    startupTitle?: string;
+    commentText?: string;
+    userName?: string;
+    userImage?: string;
+    parentCommentText?: string;
+    reportReason?: string;
+    reportStatus?: string;
+    actionTaken?: string;
+  };
+};
+
 export type ModerationActivity = {
   _id: string;
   _type: "moderationActivity";
@@ -220,6 +269,8 @@ export type ModerationActivity = {
   severity?: "low" | "medium" | "high" | "critical";
   itemId?: string;
   itemType?: string;
+  source?: string;
+  model?: string;
 };
 
 export type ModerationSettings = {
@@ -248,6 +299,8 @@ export type ModerationSettings = {
     duration?: "1h" | "24h" | "7d" | "365d" | "perm";
     strikeThreshold?: number;
   };
+  useModelModeration?: boolean;
+  fallbackToRegex?: boolean;
   lastUpdated?: string;
 };
 
@@ -311,19 +364,6 @@ export type Author = {
     _key: string;
   }>;
   strikeCount?: number;
-  strikeSystem?: {
-    isBanned?: boolean;
-    bannedUntil?: string;
-    strikeCount?: number;
-    banHistory?: Array<{
-      timestamp?: string;
-      duration?: string;
-      reason?: string;
-      reportId?: string;
-      strikeNumber?: number;
-      _key: string;
-    }>;
-  };
 };
 
 export type Report = {
@@ -562,7 +602,7 @@ export type SanityAssetSourceData = {
   url?: string;
 };
 
-export type AllSanitySchemaTypes = SearchEvent | StartupCommentEvent | StartupDislikeEvent | StartupLikeEvent | InterestedSubmission | AccountHistory | UserBadge | Badge | PushSubscription | ModerationActivity | ModerationSettings | Playlist | Author | Report | Comment | Startup | Markdown | SanityImagePaletteSwatch | SanityImagePalette | SanityImageDimensions | SanityImageHotspot | SanityImageCrop | SanityFileAsset | SanityImageAsset | SanityImageMetadata | Geopoint | Slug | SanityAssetSourceData;
+export type AllSanitySchemaTypes = SearchEvent | StartupCommentEvent | StartupDislikeEvent | StartupLikeEvent | InterestedSubmission | AccountHistory | UserBadge | Badge | PushSubscription | Notification | ModerationActivity | ModerationSettings | Playlist | Author | Report | Comment | Startup | Markdown | SanityImagePaletteSwatch | SanityImagePalette | SanityImageDimensions | SanityImageHotspot | SanityImageCrop | SanityFileAsset | SanityImageAsset | SanityImageMetadata | Geopoint | Slug | SanityAssetSourceData;
 export declare const internalGroqTypeReferenceTo: unique symbol;
 // Source: ./sanity/lib/activity-queries.ts
 // Variable: TEST_REPORTS_QUERY
@@ -811,6 +851,20 @@ export type STARTUPS_QUERYResult = Array<{
 } | {
   _id: string;
   title: string | null;
+  slug: null;
+  _createdAt: string;
+  author: null;
+  views: null;
+  description: null;
+  category: null;
+  image: null;
+  likes: null;
+  dislikes: null;
+  commentsCount: null;
+  buyMeACoffeeUsername: null;
+} | {
+  _id: string;
+  title: string | null;
   slug: Slug | null;
   _createdAt: string;
   author: null;
@@ -952,6 +1006,40 @@ export type AUTHOR_BY_GITHUB_ID_QUERYResult = {
     username: string | null;
     image: string | null;
   }> | null;
+} | null;
+// Variable: AUTHOR_BY_FIREBASE_UID_QUERY
+// Query: *[_type == "author" && id == $id][0]{    _id,    id,    name,    username,    email,    image,    bio,    followers[]->{ _id, name, username, image },    following[]->{ _id, name, username, image }}
+export type AUTHOR_BY_FIREBASE_UID_QUERYResult = {
+  _id: string;
+  id: string | null;
+  name: string | null;
+  username: string | null;
+  email: string | null;
+  image: string | null;
+  bio: string | null;
+  followers: Array<{
+    _id: string;
+    name: string | null;
+    username: string | null;
+    image: string | null;
+  }> | null;
+  following: Array<{
+    _id: string;
+    name: string | null;
+    username: string | null;
+    image: string | null;
+  }> | null;
+} | null;
+// Variable: AUTHOR_BY_EMAIL_QUERY
+// Query: *[_type == "author" && email == $email][0]{    _id,    id,    name,    username,    email,    image,    bio}
+export type AUTHOR_BY_EMAIL_QUERYResult = {
+  _id: string;
+  id: string | null;
+  name: string | null;
+  username: string | null;
+  email: string | null;
+  image: string | null;
+  bio: string | null;
 } | null;
 // Variable: AUTHOR_BY_ID_QUERY
 // Query: *[_type == "author" && _id == $id][0]{    _id,    id,    name,    username,    email,    image,    bio,    followers[]->{ _id, name, username, image },    following[]->{ _id, name, username, image }}
@@ -1145,7 +1233,8 @@ declare module "@sanity/client" {
     "*[_type == \"startup\" && defined(slug.current) && !defined($search) || title match $search || category match $search || author->name match $search] | order(_createdAt desc) {\n  _id, \n  title, \n  slug,\n  _createdAt,\n  author -> {\n    _id, name, image, bio\n  }, \n  views,\n  description,\n  category,\n  image,\n  likes,\n  dislikes,\n  \"commentsCount\": count(comments),\n  buyMeACoffeeUsername,\n}": STARTUPS_QUERYResult;
     "*[_type == \"startup\" && _id == $id][0]{\n  _id, \n  title, \n  slug,\n  _createdAt,\n  author -> {\n    _id, name, username, image, bio\n  }, \n  views,\n  description,\n  category,\n  image,\n  pitch,\n  buyMeACoffeeUsername,\n}": STARTUP_BY_ID_QUERYResult;
     "\n    *[_type == \"startup\" && _id == $id][0]{\n        _id, views\n    }\n": STARTUP_VIEWS_QUERYResult;
-    "\n*[_type == \"author\" && id == $id][0]{\n    _id,\n    id,\n    name,\n    username,\n    email,\n    image,\n    bio,\n    followers[]->{ _id, name, username, image },\n    following[]->{ _id, name, username, image }\n}\n": AUTHOR_BY_GITHUB_ID_QUERYResult;
+    "\n*[_type == \"author\" && id == $id][0]{\n    _id,\n    id,\n    name,\n    username,\n    email,\n    image,\n    bio,\n    followers[]->{ _id, name, username, image },\n    following[]->{ _id, name, username, image }\n}\n": AUTHOR_BY_GITHUB_ID_QUERYResult | AUTHOR_BY_FIREBASE_UID_QUERYResult;
+    "\n*[_type == \"author\" && email == $email][0]{\n    _id,\n    id,\n    name,\n    username,\n    email,\n    image,\n    bio\n}\n": AUTHOR_BY_EMAIL_QUERYResult;
     "\n*[_type == \"author\" && _id == $id][0]{\n    _id,\n    id,\n    name,\n    username,\n    email,\n    image,\n    bio,\n    followers[]->{ _id, name, username, image },\n    following[]->{ _id, name, username, image }\n}\n": AUTHOR_BY_ID_QUERYResult;
     "\n*[_type == \"author\" && _id == $id][0]{\n    _id,\n    followers,\n    following\n}\n": AUTHOR_FOLLOWERS_FOLLOWING_QUERYResult;
     "*[_type == \"startup\" && author._ref == $id] | order(_createdAt desc) {\n  _id, \n  title, \n  slug,\n  _createdAt,\n  author -> {\n    _id, name, image, bio\n  }, \n  views,\n  description,\n  category,\n  image,\n  likes,\n  dislikes,\n  \"commentsCount\": count(comments),\n  buyMeACoffeeUsername,\n}": STARTUPS_BY_AUTHOR_QUERYResult;

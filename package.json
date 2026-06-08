@@ -19,11 +19,19 @@
   },
   "packageManager": "npm@10.5.2",
   "overrides": {
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "next": "15.6.0-canary.61"
+    "@foundrly/web": {
+      "react": "^18.2.0",
+      "react-dom": "^18.2.0",
+      "next": "15.6.0-canary.61"
+    },
+    "@foundrly/mobile": {
+      "react": "19.2.3",
+      "react-dom": "19.2.3"
+    }
   },
   "devDependencies": {
+    "expo": "~56.0.9",
+    "expo-router": "~56.2.9",
     "typescript": "^5.7.3"
   }
 }
