@@ -1,6 +1,7 @@
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { theme } from "@/lib/theme";
 
 export function MobilePageHeader({
   title,
@@ -12,14 +13,31 @@ export function MobilePageHeader({
   const router = useRouter();
 
   return (
-    <View className="flex-row items-center border-b border-gray-100 px-4 py-3">
+    <View style={styles.header}>
       <Pressable
         onPress={() => (backHref ? router.push(backHref as any) : router.back())}
-        className="mr-3 p-1"
+        style={styles.backBtn}
       >
-        <Ionicons name="chevron-back" size={24} color="#000" />
+        <Ionicons name="chevron-back" size={24} color={theme.black} />
       </Pressable>
-      <Text className="text-lg font-semibold">{title}</Text>
+      <Text style={styles.title}>{title}</Text>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderBottomWidth: 1,
+    borderBottomColor: theme.gray100,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  backBtn: { marginRight: 12, padding: 4 },
+  title: {
+    fontFamily: theme.fontFamily.semiBold,
+    fontSize: 18,
+    color: theme.black,
+  },
+});

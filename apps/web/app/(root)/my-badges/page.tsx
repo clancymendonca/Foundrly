@@ -6,7 +6,7 @@ export default async function MyBadgesPage() {
   const session = await auth();
   
   if (!session?.user?.id) {
-    redirect('/auth/signin');
+    redirect('/login');
   }
 
   return (

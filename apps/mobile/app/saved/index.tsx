@@ -4,6 +4,7 @@ import { AppShell } from "@/components/layout/AppShell";
 import { MobilePageHeader } from "@/components/layout/MobilePageHeader";
 import { StartupCard } from "@/components/startup/StartupCard";
 import { apiFetch } from "@/lib/api-client";
+import { screenStyles } from "@/lib/screen-styles";
 import type { Startup } from "@foundrly/shared";
 
 export default function SavedScreen() {
@@ -18,11 +19,11 @@ export default function SavedScreen() {
       <FlatList
         data={data?.startups ?? []}
         keyExtractor={(item) => item._id}
-        contentContainerClassName="p-4 pb-24"
+        contentContainerStyle={screenStyles.listContent}
         renderItem={({ item }) => <StartupCard startup={item} />}
         ListEmptyComponent={
           !isLoading ? (
-            <Text className="text-center text-gray-500">No saved startups</Text>
+            <Text style={screenStyles.empty}>No saved startups</Text>
           ) : null
         }
       />

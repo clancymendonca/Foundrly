@@ -1,8 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Pressable, FlatList, Text, View } from "react-native";
+import { Pressable, FlatList, StyleSheet, Text } from "react-native";
 import { AppShell } from "@/components/layout/AppShell";
 import { MobilePageHeader } from "@/components/layout/MobilePageHeader";
 import { apiFetch } from "@/lib/api-client";
+import { screenStyles } from "@/lib/screen-styles";
+import { theme } from "@/lib/theme";
 
 export default function NotificationsScreen() {
   const queryClient = useQueryClient();
@@ -20,38 +22,58 @@ export default function NotificationsScreen() {
 
   const markAllRead = useMutation({
     mutationFn: () =>
-      apiFetch("/api/notifications/mark-read", { method: "POST", body: JSON.stringify({}) }),
+      apiFetch("/api/notifications/mark-read", {
+        method: "POST",
+        body: JSON.stringify({}),
+      }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
   });
 
   return (
     <AppShell>
       <MobilePageHeader title="Notifications" />
-      <Pressable
-        onPress={() => markAllRead.mutate()}
-        className="mx-4 mb-2 rounded bg-gray-100 py-2"
-      >
-        <Text className="text-center text-sm text-primary">Mark all read</Text>
+      <Pressable onPress={() => markAllRead.mutate()} style={styles.markAll}>
+        <Text style={styles.markAllText}>Mark all read</Text>
       </Pressable>
       <FlatList
         data={data?.notifications ?? []}
         keyExtractor={(item: any) => item._id}
         refreshing={isLoading}
         onRefresh={refetch}
-        contentContainerClassName="px-4 pb-24"
+        contentContainerStyle={screenStyles.listContent}
         renderItem={({ item }: any) => (
           <Pressable
             onPress={() => markRead.mutate(item._id)}
-            className={`mb-2 rounded-lg border p-4 ${item.read ? "border-gray-100 bg-white" : "border-primary/30 bg-primary/5"}`}
+            style={[screenStyles.card, !item.read && styles.unread]}
           >
-            <Text className="font-medium">{item.title || item.type}</Text>
-            <Text className="mt-1 text-sm text-gray-600">{item.message}</Text>
+            <Text style={screenStyles.cardTitle}>{item.title || item.type}</Text>
+            <Text style={screenStyles.cardDesc}>{item.message}</Text>
           </Pressable>
         )}
         ListEmptyComponent={
-          <Text className="text-center text-gray-500">No notifications</Text>
+          <Text style={screenStyles.empty}>No notifications</Text>
         }
       />
     </AppShell>
   );
 }
+
+const styles = StyleSheet.create({
+  markAll: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+    borderRadius: 8,
+    backgroundColor: theme.gray100,
+    paddingVertical: 8,
+  },
+  markAllText: {
+    textAlign: "center",
+    fontFamily: theme.fontFamily.medium,
+    fontSize: 14,
+    color: theme.primary,
+  },
+  unread: {
+    borderColor: "rgba(78, 113, 255, 0.3)",
+    backgroundColor: "rgba(78, 113, 255, 0.05)",
+  },
+});

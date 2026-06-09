@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { client } from '@/sanity/lib/client';
 import { SUGGESTED_USERS_QUERY, CURRENT_USER_FOLLOWERS_QUERY } from '@/sanity/lib/queries';
+import { resolveClientProfileImageUrl } from '@/lib/sanity-image';
 
 export async function GET(req: Request) {
   try {
@@ -85,7 +86,11 @@ export async function GET(req: Request) {
         }
       }
 
-      allUsers.push({ ...user, type });
+      allUsers.push({
+        ...user,
+        image: resolveClientProfileImageUrl(user._id, user.image),
+        type,
+      });
     });
 
     // Sort by priority: followers first, then mutuals, then others

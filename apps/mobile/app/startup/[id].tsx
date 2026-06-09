@@ -1,81 +1,246 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useLocalSearchParams } from "expo-router";
+import { useQuery } from "@tanstack/react-query";
+import { Link, useLocalSearchParams } from "expo-router";
 import { Image } from "expo-image";
 import Markdown from "react-native-markdown-display";
 import {
   ActivityIndicator,
   Pressable,
   ScrollView,
+  StyleSheet,
   Text,
   View,
 } from "react-native";
 import { AppShell } from "@/components/layout/AppShell";
+import { CommentsSection } from "@/components/comments/CommentsSection";
+import { StartupDetailActions } from "@/components/startup/StartupDetailActions";
+import { StartupDetailLikes } from "@/components/startup/StartupDetailLikes";
+import { PatternOverlay } from "@/components/ui/PatternOverlay";
+import { TagTri } from "@/components/ui/TagTri";
 import { apiFetch } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
+import { formatDate } from "@/lib/format-date";
 import { urlForImage } from "@/lib/sanity";
+import { theme, typography } from "@/lib/theme";
 import type { Startup } from "@foundrly/shared";
 
 export default function StartupDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
-  const queryClient = useQueryClient();
 
   const { data: startup, isLoading } = useQuery({
     queryKey: ["startup", id],
     queryFn: () => apiFetch<Startup>(`/api/startups/${id}`),
   });
 
-  const likeMutation = useMutation({
-    mutationFn: () =>
-      apiFetch("/api/likes", {
-        method: "POST",
-        body: JSON.stringify({ startupId: id }),
-      }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["startup", id] }),
-  });
-
   if (isLoading || !startup) {
     return (
       <AppShell>
-        <ActivityIndicator className="mt-8" color="#4E71FF" />
+        <ActivityIndicator style={styles.loader} color={theme.primary} />
       </AppShell>
     );
   }
 
+  const imageUri = urlForImage(startup.image || "");
+  const authorId = startup.author?._id;
+
   return (
     <AppShell>
-      <ScrollView className="flex-1 pb-24">
-        <Image
-          source={{ uri: urlForImage(startup.image || "") }}
-          className="h-56 w-full"
-          contentFit="cover"
-        />
-        <View className="p-4">
-          <Text className="text-2xl font-bold">{startup.title}</Text>
-          <Text className="mt-2 text-gray-600">{startup.description}</Text>
-          <Text className="mt-2 rounded bg-secondary px-2 py-1 self-start text-xs font-bold uppercase">
-            {startup.category}
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+      >
+        <View style={styles.hero}>
+          <PatternOverlay />
+          <TagTri>{formatDate(startup._createdAt)}</TagTri>
+          <View style={styles.headingPill}>
+            <Text style={styles.heading}>{startup.title || "Untitled"}</Text>
+          </View>
+          <Text style={styles.subHeading}>
+            {startup.description || "No description provided."}
           </Text>
+          <StartupDetailLikes
+            startupId={startup._id}
+            userId={user?.id}
+            isLoggedIn={!!user}
+          />
+        </View>
 
-          {user && (
-            <View className="mt-4 flex-row gap-3">
-              <Pressable
-                onPress={() => likeMutation.mutate()}
-                className="rounded-lg bg-primary px-4 py-2"
-              >
-                <Text className="text-white">Like ({startup.likes ?? 0})</Text>
-              </Pressable>
-            </View>
+        <View style={styles.section}>
+          {imageUri ? (
+            <Image
+              source={{ uri: imageUri }}
+              style={styles.mainImage}
+              contentFit="cover"
+            />
+          ) : (
+            <View style={styles.imagePlaceholder} />
           )}
 
-          {startup.pitch && (
-            <View className="mt-6">
-              <Text className="mb-2 text-lg font-bold">Pitch</Text>
-              <Markdown>{startup.pitch}</Markdown>
-            </View>
+          <View style={styles.authorBlock}>
+            {authorId ? (
+              <Link href={`/user/${authorId}` as any} asChild>
+                <Pressable style={styles.authorRow}>
+                  {startup.author?.image ? (
+                    <Image
+                      source={{ uri: startup.author.image }}
+                      style={styles.authorAvatar}
+                    />
+                  ) : (
+                    <View style={styles.authorAvatarFallback}>
+                      <Text style={styles.authorLetter}>
+                        {startup.author?.name?.[0] ?? "?"}
+                      </Text>
+                    </View>
+                  )}
+                  <View>
+                    <Text style={styles.authorName}>
+                      {startup.author?.name || "Unknown"}
+                    </Text>
+                    <Text style={styles.authorHandle}>
+                      @{startup.author?.username || "unknown"}
+                    </Text>
+                  </View>
+                </Pressable>
+              </Link>
+            ) : null}
+            <Text style={styles.categoryTag}>
+              {startup.category || "Uncategorized"}
+            </Text>
+          </View>
+
+          <Text style={styles.pitchTitle}>Pitch Details</Text>
+          {startup.pitch ? (
+            <Markdown style={markdownStyles}>{startup.pitch}</Markdown>
+          ) : (
+            <Text style={styles.noResult}>No details provided</Text>
           )}
+
+          <StartupDetailActions
+            startupId={startup._id}
+            isOwner={user?.id === authorId}
+          />
+
+          <View style={styles.divider} />
+
+          <CommentsSection startupId={startup._id} />
         </View>
       </ScrollView>
     </AppShell>
   );
 }
+
+const markdownStyles = StyleSheet.create({
+  body: {
+    fontFamily: theme.fontFamily.regular,
+    fontSize: 16,
+    color: theme.black,
+    lineHeight: 24,
+  },
+});
+
+const styles = StyleSheet.create({
+  scroll: { flex: 1 },
+  scrollContent: { paddingBottom: theme.tabBarHeight + 24 },
+  loader: { marginTop: 32 },
+  hero: {
+    minHeight: 230,
+    backgroundColor: theme.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 24,
+    paddingVertical: 40,
+    overflow: "hidden",
+  },
+  headingPill: {
+    backgroundColor: theme.black,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    marginVertical: 20,
+    maxWidth: "100%",
+  },
+  heading: {
+    ...typography.heading,
+    textAlign: "center",
+  },
+  subHeading: {
+    ...typography.subHeading,
+    maxWidth: 640,
+  },
+  section: {
+    paddingHorizontal: 24,
+    paddingVertical: 40,
+    maxWidth: 896,
+    alignSelf: "center",
+    width: "100%",
+  },
+  mainImage: {
+    width: "100%",
+    height: 240,
+    borderRadius: 12,
+  },
+  imagePlaceholder: {
+    width: "100%",
+    height: 240,
+    borderRadius: 12,
+    backgroundColor: theme.gray200,
+  },
+  authorBlock: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 40,
+    gap: 16,
+  },
+  authorRow: { flexDirection: "row", alignItems: "center", gap: 12, flex: 1 },
+  authorAvatar: { width: 64, height: 64, borderRadius: 32 },
+  authorAvatarFallback: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: theme.gray200,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  authorLetter: {
+    fontFamily: theme.fontFamily.bold,
+    fontSize: 22,
+    color: theme.gray600,
+  },
+  authorName: {
+    fontFamily: theme.fontFamily.medium,
+    fontSize: 20,
+    color: theme.black,
+  },
+  authorHandle: {
+    fontFamily: theme.fontFamily.medium,
+    fontSize: 16,
+    color: theme.black300,
+  },
+  categoryTag: {
+    fontFamily: theme.fontFamily.medium,
+    fontSize: 16,
+    backgroundColor: "#BBFBFF",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 999,
+  },
+  pitchTitle: {
+    fontFamily: theme.fontFamily.bold,
+    fontSize: 30,
+    marginTop: 40,
+    marginBottom: 16,
+    color: theme.black,
+  },
+  noResult: {
+    fontFamily: theme.fontFamily.regular,
+    fontSize: 14,
+    color: theme.black100,
+  },
+  divider: {
+    marginTop: 40,
+    borderTopWidth: 2,
+    borderStyle: "dotted",
+    borderColor: theme.gray500,
+    opacity: 0.4,
+  },
+});

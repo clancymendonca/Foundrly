@@ -7,7 +7,7 @@ export default async function ReportPage() {
   const session = await auth();
   
   if (!session?.user?.id) {
-    redirect('/auth/signin');
+    redirect('/login');
   }
 
   return (

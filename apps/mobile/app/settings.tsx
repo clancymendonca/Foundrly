@@ -1,11 +1,12 @@
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
-import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Pressable, ScrollView, Text, TextInput } from "react-native";
 import Toast from "react-native-toast-message";
 import { AppShell } from "@/components/layout/AppShell";
 import { MobilePageHeader } from "@/components/layout/MobilePageHeader";
 import { apiFetch } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
+import { screenStyles } from "@/lib/screen-styles";
 
 export default function SettingsScreen() {
   const { user, refreshUser } = useAuth();
@@ -28,16 +29,12 @@ export default function SettingsScreen() {
   return (
     <AppShell>
       <MobilePageHeader title="Settings" />
-      <ScrollView className="flex-1 p-4 pb-24">
-        <Text className="mb-1 font-medium">Display name</Text>
+      <ScrollView style={screenStyles.scroll} contentContainerStyle={screenStyles.scrollContent}>
+        <Text style={screenStyles.label}>Display name</Text>
+        <TextInput style={screenStyles.input} value={name} onChangeText={setName} />
+        <Text style={screenStyles.label}>Bio</Text>
         <TextInput
-          className="mb-4 rounded-lg border border-gray-200 px-4 py-3"
-          value={name}
-          onChangeText={setName}
-        />
-        <Text className="mb-1 font-medium">Bio</Text>
-        <TextInput
-          className="mb-4 rounded-lg border border-gray-200 px-4 py-3"
+          style={[screenStyles.input, { marginBottom: 16 }]}
           value={bio}
           onChangeText={setBio}
           multiline
@@ -45,9 +42,9 @@ export default function SettingsScreen() {
         />
         <Pressable
           onPress={() => saveMutation.mutate()}
-          className="rounded-lg bg-primary py-3"
+          style={screenStyles.primaryBtn}
         >
-          <Text className="text-center font-bold text-white">Save changes</Text>
+          <Text style={screenStyles.primaryBtnText}>Save changes</Text>
         </Pressable>
       </ScrollView>
     </AppShell>

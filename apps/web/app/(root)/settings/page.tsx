@@ -10,7 +10,7 @@ export default async function SettingsPage() {
   const session = await auth();
   
   if (!session?.user?.id) {
-    redirect('/auth/signin');
+    redirect('/login');
   }
 
   // Fetch current user data from Sanity
@@ -19,7 +19,7 @@ export default async function SettingsPage() {
   });
 
   if (!currentUser) {
-    redirect('/auth/signin');
+    redirect('/login');
   }
 
   return (

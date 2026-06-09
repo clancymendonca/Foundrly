@@ -69,7 +69,7 @@ async function getInterestedSubmissions(): Promise<InterestedSubmission[]> {
 export default async function InterestedSubmissionsPage() {
   const session = await getAdminSession();
   if (!session) {
-    redirect('/api/auth/signin?callbackUrl=/admin/interested-submissions');
+    redirect('/login?callbackUrl=/admin/interested-submissions');
   }
 
   const submissions = await getInterestedSubmissions();

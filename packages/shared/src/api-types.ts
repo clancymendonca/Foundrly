@@ -19,12 +19,11 @@ export interface StartupCreateBody {
   buyMeACoffeeUsername?: string;
 }
 
-export interface MobileGithubAuthBody {
-  code: string;
-  redirectUri: string;
+export interface MobileFirebaseAuthBody {
+  idToken: string;
 }
 
-export interface MobileGithubAuthResponse {
+export interface MobileFirebaseAuthResponse {
   token: string;
   user: SessionUser;
 }
