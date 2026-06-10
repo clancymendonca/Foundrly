@@ -5,12 +5,18 @@ import { MobileTabBar } from "./MobileTabBar";
 import { useAuth } from "@/lib/auth-context";
 import { theme } from "@/lib/theme";
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({
+  children,
+  hideHeader = false,
+}: {
+  children: React.ReactNode;
+  hideHeader?: boolean;
+}) {
   const { user } = useAuth();
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
-      <AppHeader />
+      {hideHeader ? null : <AppHeader />}
       <View style={[styles.content, user ? styles.contentWithTabs : null]}>
         {children}
       </View>
