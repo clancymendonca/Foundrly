@@ -4,6 +4,7 @@ import { writeClient } from '@/sanity/lib/write-client';
 import { getSession } from '@/lib/get-session';
 import { createLikeNotification } from '@/sanity/lib/notifications';
 import { ServerPushNotificationService } from '@/lib/notifications/serverPushNotifications';
+import { awardBadgesForAction } from '@/lib/badges/award-badges-for-action';
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -117,6 +118,7 @@ export async function POST(req: Request) {
 
     // Create notification for new like (only if it's a new like, not un-liking)
     if (!userHasLiked && likes > doc.likes) {
+      let startupAuthorId: string | undefined;
       try {
         // Get startup owner and startup details
         const startup = await client.fetch(
@@ -126,6 +128,7 @@ export async function POST(req: Request) {
           }`,
           { startupId: id }
         );
+        startupAuthorId = startup?.author?._id;
 
         if (startup && startup.author?._id !== userId) {
           // Only create notification if liker is not the startup owner
@@ -162,6 +165,10 @@ export async function POST(req: Request) {
       } catch (notificationError) {
         console.error('Failed to create like notification:', notificationError);
         // Don't fail the entire request if notification creation fails
+      }
+
+      if (startupAuthorId) {
+        void awardBadgesForAction(startupAuthorId, 'likes_received').catch(console.error);
       }
     }
 

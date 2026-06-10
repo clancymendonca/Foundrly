@@ -3,6 +3,7 @@ import { writeClient } from '@/sanity/lib/write-client';
 import { canUserPerformAction } from '@/lib/ban-checks';
 import { createFollowNotification } from '@/sanity/lib/notifications';
 import { ServerPushNotificationService } from '@/lib/notifications/serverPushNotifications';
+import { awardBadgesForAction } from '@/lib/badges/award-badges-for-action';
 
 export async function POST(req: Request) {
   try {
@@ -196,6 +197,9 @@ export async function POST(req: Request) {
         console.error('Failed to create follow notification:', notificationError);
         // Don't fail the entire request if notification creation fails
       }
+
+      void awardBadgesForAction(currentUserId, 'users_followed').catch(console.error);
+      void awardBadgesForAction(profileId, 'followers_gained').catch(console.error);
     }
 
     // Return optimistic data immediately without additional database calls

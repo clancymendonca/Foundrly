@@ -6,6 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { createCommentNotification, createReplyNotification } from '@/sanity/lib/notifications';
 import { ServerPushNotificationService } from '@/lib/notifications/serverPushNotifications';
 import { checkUserContentModeration } from '@/lib/content-moderation-guard';
+import { awardBadgesForAction } from '@/lib/badges/award-badges-for-action';
 
 /**
  * Fetches and returns the comment reply tree for a startup.
@@ -200,6 +201,8 @@ export async function POST(req: Request) {
         // Don't fail the entire request if notification creation fails
       }
 
+      void awardBadgesForAction(session.user.id, 'replies_posted').catch(console.error);
+
       return NextResponse.json({ success: true, reply });
     } else if (action === 'like' || action === 'dislike') {
       // Like or dislike a comment
@@ -384,6 +387,9 @@ export async function POST(req: Request) {
       } catch (e) {
         console.error('Failed to log comment analytics event', e);
       }
+
+      void awardBadgesForAction(session.user.id, 'comments_posted').catch(console.error);
+
       return NextResponse.json({ success: true, comment });
     }
   } catch (error) {

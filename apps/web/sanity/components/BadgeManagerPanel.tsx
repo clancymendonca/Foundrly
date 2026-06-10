@@ -18,13 +18,14 @@ interface BadgeDoc {
   _id: string
   name: string
   category?: string
-  rarity?: string
-  criteria?: { metric?: string; target?: number }
+  metric?: string
+  levels?: { tier?: string; target?: number; rarity?: string }[]
 }
 
 interface UserBadgeDoc {
   _id: string
   earnedAt: string
+  currentTier?: string
   user?: { _id: string; name?: string }
   badge?: { _id: string; name?: string }
 }
@@ -58,10 +59,10 @@ export const BadgeManagerPanel = () => {
     setError(null)
     try {
       const [badgeData, awardData] = await Promise.all([
-        client.fetch<BadgeDoc[]>(`*[_type == "badge" && isActive != false]{ _id, name, category, rarity, criteria }`),
+        client.fetch<BadgeDoc[]>(`*[_type == "badge" && isActive != false]{ _id, name, category, metric, levels }`),
         client.fetch<UserBadgeDoc[]>(`
           *[_type == "userBadge"] | order(earnedAt desc)[0...20] {
-            _id, earnedAt,
+            _id, earnedAt, currentTier,
             "user": user->{ _id, name },
             "badge": badge->{ _id, name }
           }
@@ -270,8 +271,10 @@ export const BadgeManagerPanel = () => {
                     <Stack space={1}>
                       <Text size={1} weight="semibold">{badge.name}</Text>
                       <Text size={0} muted>
-                        {badge.category} · {badge.rarity}
-                        {badge.criteria?.metric ? ` · ${badge.criteria.metric} (${badge.criteria.target})` : ''}
+                        {badge.category} · {badge.metric}
+                        {badge.levels?.length
+                          ? ` · ${badge.levels.length} tiers (diamond @ ${badge.levels[badge.levels.length - 1]?.target})`
+                          : ''}
                       </Text>
                     </Stack>
                     <Badge tone="primary">{badge.category}</Badge>

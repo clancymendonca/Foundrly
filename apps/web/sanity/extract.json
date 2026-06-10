@@ -992,7 +992,43 @@
         },
         "optional": true
       },
+      "currentTier": {
+        "type": "objectAttribute",
+        "value": {
+          "type": "union",
+          "of": [
+            {
+              "type": "string",
+              "value": "bronze"
+            },
+            {
+              "type": "string",
+              "value": "silver"
+            },
+            {
+              "type": "string",
+              "value": "gold"
+            },
+            {
+              "type": "string",
+              "value": "platinum"
+            },
+            {
+              "type": "string",
+              "value": "diamond"
+            }
+          ]
+        },
+        "optional": true
+      },
       "earnedAt": {
+        "type": "objectAttribute",
+        "value": {
+          "type": "string"
+        },
+        "optional": true
+      },
+      "completedAt": {
         "type": "objectAttribute",
         "value": {
           "type": "string"
@@ -1024,6 +1060,43 @@
                 "type": "number"
               },
               "optional": true
+            }
+          }
+        },
+        "optional": true
+      },
+      "tierHistory": {
+        "type": "objectAttribute",
+        "value": {
+          "type": "array",
+          "of": {
+            "type": "object",
+            "attributes": {
+              "tier": {
+                "type": "objectAttribute",
+                "value": {
+                  "type": "string"
+                },
+                "optional": true
+              },
+              "earnedAt": {
+                "type": "objectAttribute",
+                "value": {
+                  "type": "string"
+                },
+                "optional": true
+              }
+            },
+            "rest": {
+              "type": "object",
+              "attributes": {
+                "_key": {
+                  "type": "objectAttribute",
+                  "value": {
+                    "type": "string"
+                  }
+                }
+              }
             }
           }
         },
@@ -1200,59 +1273,46 @@
         },
         "optional": true
       },
-      "rarity": {
+      "metric": {
         "type": "objectAttribute",
         "value": {
           "type": "union",
           "of": [
             {
               "type": "string",
-              "value": "common"
+              "value": "startups_created"
             },
             {
               "type": "string",
-              "value": "uncommon"
+              "value": "comments_posted"
             },
             {
               "type": "string",
-              "value": "rare"
+              "value": "replies_posted"
             },
             {
               "type": "string",
-              "value": "epic"
+              "value": "likes_received"
             },
             {
               "type": "string",
-              "value": "legendary"
-            }
-          ]
-        },
-        "optional": true
-      },
-      "tier": {
-        "type": "objectAttribute",
-        "value": {
-          "type": "union",
-          "of": [
-            {
-              "type": "string",
-              "value": "bronze"
+              "value": "followers_gained"
             },
             {
               "type": "string",
-              "value": "silver"
+              "value": "users_followed"
             },
             {
               "type": "string",
-              "value": "gold"
+              "value": "views_received"
             },
             {
               "type": "string",
-              "value": "platinum"
+              "value": "days_active"
             },
             {
               "type": "string",
-              "value": "diamond"
+              "value": "reports_submitted"
             }
           ]
         },
@@ -1288,54 +1348,6 @@
               },
               "optional": true
             },
-            "target": {
-              "type": "objectAttribute",
-              "value": {
-                "type": "number"
-              },
-              "optional": true
-            },
-            "metric": {
-              "type": "objectAttribute",
-              "value": {
-                "type": "union",
-                "of": [
-                  {
-                    "type": "string",
-                    "value": "startups_created"
-                  },
-                  {
-                    "type": "string",
-                    "value": "comments_posted"
-                  },
-                  {
-                    "type": "string",
-                    "value": "likes_received"
-                  },
-                  {
-                    "type": "string",
-                    "value": "followers_gained"
-                  },
-                  {
-                    "type": "string",
-                    "value": "users_followed"
-                  },
-                  {
-                    "type": "string",
-                    "value": "views_received"
-                  },
-                  {
-                    "type": "string",
-                    "value": "days_active"
-                  },
-                  {
-                    "type": "string",
-                    "value": "reports_submitted"
-                  }
-                ]
-              },
-              "optional": true
-            },
             "timeframe": {
               "type": "objectAttribute",
               "value": {
@@ -1364,6 +1376,112 @@
                 ]
               },
               "optional": true
+            }
+          }
+        },
+        "optional": true
+      },
+      "levels": {
+        "type": "objectAttribute",
+        "value": {
+          "type": "array",
+          "of": {
+            "type": "object",
+            "attributes": {
+              "tier": {
+                "type": "objectAttribute",
+                "value": {
+                  "type": "union",
+                  "of": [
+                    {
+                      "type": "string",
+                      "value": "bronze"
+                    },
+                    {
+                      "type": "string",
+                      "value": "silver"
+                    },
+                    {
+                      "type": "string",
+                      "value": "gold"
+                    },
+                    {
+                      "type": "string",
+                      "value": "platinum"
+                    },
+                    {
+                      "type": "string",
+                      "value": "diamond"
+                    }
+                  ]
+                },
+                "optional": true
+              },
+              "target": {
+                "type": "objectAttribute",
+                "value": {
+                  "type": "number"
+                },
+                "optional": true
+              },
+              "rarity": {
+                "type": "objectAttribute",
+                "value": {
+                  "type": "union",
+                  "of": [
+                    {
+                      "type": "string",
+                      "value": "common"
+                    },
+                    {
+                      "type": "string",
+                      "value": "uncommon"
+                    },
+                    {
+                      "type": "string",
+                      "value": "rare"
+                    },
+                    {
+                      "type": "string",
+                      "value": "epic"
+                    },
+                    {
+                      "type": "string",
+                      "value": "legendary"
+                    },
+                    {
+                      "type": "string",
+                      "value": "mythical"
+                    }
+                  ]
+                },
+                "optional": true
+              },
+              "description": {
+                "type": "objectAttribute",
+                "value": {
+                  "type": "string"
+                },
+                "optional": true
+              },
+              "_type": {
+                "type": "objectAttribute",
+                "value": {
+                  "type": "string",
+                  "value": "badgeLevel"
+                }
+              }
+            },
+            "rest": {
+              "type": "object",
+              "attributes": {
+                "_key": {
+                  "type": "objectAttribute",
+                  "value": {
+                    "type": "string"
+                  }
+                }
+              }
             }
           }
         },

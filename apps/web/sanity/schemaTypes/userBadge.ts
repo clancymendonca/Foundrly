@@ -1,4 +1,4 @@
-import { defineField, defineType } from "sanity";
+import { defineArrayMember, defineField, defineType } from "sanity";
 
 export const userBadge = defineType({
   name: "userBadge",
@@ -19,9 +19,28 @@ export const userBadge = defineType({
       validation: (Rule) => Rule.required(),
     }),
     defineField({
+      name: "currentTier",
+      type: "string",
+      options: {
+        list: [
+          { title: "Bronze", value: "bronze" },
+          { title: "Silver", value: "silver" },
+          { title: "Gold", value: "gold" },
+          { title: "Platinum", value: "platinum" },
+          { title: "Diamond", value: "diamond" },
+        ],
+      },
+      description: "Highest tier reached on this track",
+    }),
+    defineField({
       name: "earnedAt",
       type: "datetime",
-      validation: (Rule) => Rule.required(),
+      description: "When the first tier was unlocked",
+    }),
+    defineField({
+      name: "completedAt",
+      type: "datetime",
+      description: "Set when diamond tier is reached",
     }),
     defineField({
       name: "progress",
@@ -30,18 +49,31 @@ export const userBadge = defineType({
         {
           name: "current",
           type: "number",
-          description: "Current progress toward badge",
+          description: "Current metric value",
         },
         {
           name: "target",
           type: "number",
-          description: "Target value to achieve badge",
+          description: "Target for the next tier",
         },
         {
           name: "percentage",
           type: "number",
-          description: "Progress percentage (0-100)",
+          description: "Progress percentage toward next tier (0-100)",
         },
+      ],
+    }),
+    defineField({
+      name: "tierHistory",
+      type: "array",
+      of: [
+        defineArrayMember({
+          type: "object",
+          fields: [
+            { name: "tier", type: "string" },
+            { name: "earnedAt", type: "datetime" },
+          ],
+        }),
       ],
     }),
     defineField({
@@ -66,13 +98,16 @@ export const userBadge = defineType({
     select: {
       title: "badge.name",
       subtitle: "user.name",
+      tier: "currentTier",
       media: "badge.icon",
     },
     prepare(selection) {
-      const { title, subtitle, media } = selection;
+      const { title, subtitle, tier, media } = selection;
       return {
         title: title || "Unknown Badge",
-        subtitle: subtitle ? `Earned by ${subtitle}` : "No user",
+        subtitle: [subtitle ? `Earned by ${subtitle}` : "No user", tier]
+          .filter(Boolean)
+          .join(" · "),
         media: () => media || "🎖️",
       };
     },
