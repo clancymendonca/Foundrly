@@ -11,8 +11,9 @@ import {
   View,
 } from "react-native";
 import { AppShell } from "@/components/layout/AppShell";
+import { MobilePageHeader } from "@/components/layout/MobilePageHeader";
 import { CommentsSection } from "@/components/comments/CommentsSection";
-import { StartupDetailActions } from "@/components/startup/StartupDetailActions";
+import { StartupEditButton } from "@/components/startup/StartupDetailActions";
 import { StartupDetailLikes } from "@/components/startup/StartupDetailLikes";
 import { PatternOverlay } from "@/components/ui/PatternOverlay";
 import { TagTri } from "@/components/ui/TagTri";
@@ -20,6 +21,7 @@ import { apiFetch } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
 import { formatDate } from "@/lib/format-date";
 import { urlForImage } from "@/lib/sanity";
+import { startupDetailMarkdownStyles } from "@/lib/markdown-styles";
 import { theme, typography } from "@/lib/theme";
 import type { Startup } from "@foundrly/shared";
 
@@ -34,7 +36,7 @@ export default function StartupDetailScreen() {
 
   if (isLoading || !startup) {
     return (
-      <AppShell>
+      <AppShell hideHeader>
         <ActivityIndicator style={styles.loader} color={theme.primary} />
       </AppShell>
     );
@@ -42,13 +44,27 @@ export default function StartupDetailScreen() {
 
   const imageUri = urlForImage(startup.image || "");
   const authorId = startup.author?._id;
+  const isOwner = user?.id === authorId;
 
   return (
-    <AppShell>
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-      >
+    <AppShell hideHeader>
+      <View style={styles.screen}>
+        <MobilePageHeader
+          title={startup.title || "Startup"}
+          rightAction={
+            isOwner ? (
+              <StartupEditButton
+                startupId={startup._id}
+                isOwner={isOwner}
+                variant="icon"
+              />
+            ) : undefined
+          }
+        />
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+        >
         <View style={styles.hero}>
           <PatternOverlay />
           <TagTri>{formatDate(startup._createdAt)}</TagTri>
@@ -110,35 +126,27 @@ export default function StartupDetailScreen() {
 
           <Text style={styles.pitchTitle}>Pitch Details</Text>
           {startup.pitch ? (
-            <Markdown style={markdownStyles}>{startup.pitch}</Markdown>
+            <View style={styles.pitchContent}>
+              <Markdown style={startupDetailMarkdownStyles}>
+                {startup.pitch}
+              </Markdown>
+            </View>
           ) : (
             <Text style={styles.noResult}>No details provided</Text>
           )}
-
-          <StartupDetailActions
-            startupId={startup._id}
-            isOwner={user?.id === authorId}
-          />
 
           <View style={styles.divider} />
 
           <CommentsSection startupId={startup._id} />
         </View>
-      </ScrollView>
+        </ScrollView>
+      </View>
     </AppShell>
   );
 }
 
-const markdownStyles = StyleSheet.create({
-  body: {
-    fontFamily: theme.fontFamily.regular,
-    fontSize: 16,
-    color: theme.black,
-    lineHeight: 24,
-  },
-});
-
 const styles = StyleSheet.create({
+  screen: { flex: 1 },
   scroll: { flex: 1 },
   scrollContent: { paddingBottom: theme.tabBarHeight + 24 },
   loader: { marginTop: 32 },
@@ -226,10 +234,18 @@ const styles = StyleSheet.create({
   },
   pitchTitle: {
     fontFamily: theme.fontFamily.bold,
-    fontSize: 30,
+    fontSize: 28,
     marginTop: 40,
-    marginBottom: 16,
+    marginBottom: 12,
     color: theme.black,
+  },
+  pitchContent: {
+    backgroundColor: theme.gray100,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: theme.gray200,
+    paddingHorizontal: 18,
+    paddingVertical: 20,
   },
   noResult: {
     fontFamily: theme.fontFamily.regular,
