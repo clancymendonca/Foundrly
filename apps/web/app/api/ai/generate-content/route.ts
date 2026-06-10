@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/get-session';
 import { aiService } from '@/lib/ai-services';
 import { canUserPerformAction } from '@/lib/ban-checks';
+import { formatAiErrorMessage } from '@foundrly/shared';
 
 export async function POST(request: NextRequest) {
   try {
@@ -58,9 +59,9 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Error in content generation API:', error);
-    return NextResponse.json({ 
-      success: false, 
-      message: 'Failed to generate content' 
+    return NextResponse.json({
+      success: false,
+      message: formatAiErrorMessage(error, 'Failed to generate content'),
     }, { status: 500 });
   }
 }
