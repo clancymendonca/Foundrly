@@ -102,6 +102,8 @@ export default function BadgeLeaderboard({
       const allUserBadges = await client.fetch(`
         *[_type == "userBadge"] {
           _id,
+          currentTier,
+          completedAt,
           user->{
             _id,
             name,
@@ -112,8 +114,7 @@ export default function BadgeLeaderboard({
             _id,
             name,
             category,
-            tier,
-            rarity
+            levels
           },
           earnedAt
         }
@@ -137,43 +138,46 @@ export default function BadgeLeaderboard({
       const leaderboardEntries: BadgeLeaderboardEntry[] = allUsers
         .map((user: any) => {
           const userBadges = userBadgeMap.get(user._id) || [];
-          const badges = userBadges.map((ub: any) => ub.badge).filter((badge: any) => badge && badge._id);
-          
-          // Calculate total badges
-          const totalBadges = badges.length;
-          
-          // Calculate highest tier
+
+          const totalBadges = userBadges.filter((ub: { completedAt?: string }) => ub.completedAt).length;
+
           const tierOrder = { bronze: 1, silver: 2, gold: 3, platinum: 4, diamond: 5 };
-          const highestTier = badges.reduce((highest: string, badge: any) => {
-            if (!badge.tier) return highest;
-            const currentTierOrder = tierOrder[badge.tier as keyof typeof tierOrder] || 0;
+          const highestTier = userBadges.reduce((highest: string, ub: { currentTier?: string }) => {
+            const tier = ub.currentTier;
+            if (!tier) return highest;
+            const currentTierOrder = tierOrder[tier as keyof typeof tierOrder] || 0;
             const highestTierOrder = tierOrder[highest as keyof typeof tierOrder] || 0;
-            return currentTierOrder > highestTierOrder ? badge.tier : highest;
+            return currentTierOrder > highestTierOrder ? tier : highest;
           }, 'bronze');
-          
-          const highestTierCount = badges.filter((badge: any) => badge.tier === highestTier).length;
-          
-          // Calculate category breakdown
+
+          const highestTierCount = userBadges.filter(
+            (ub: { currentTier?: string }) => ub.currentTier === highestTier,
+          ).length;
+
           const categoryBreakdown: { [category: string]: { total: number; highestTier: string } } = {};
-          badges.forEach((badge: any) => {
-            if (!badge.category || !badge.tier) return;
+          userBadges.forEach((ub: { badge?: { category?: string }; currentTier?: string }) => {
+            const badge = ub.badge;
+            const tier = ub.currentTier;
+            if (!badge?.category || !tier) return;
             if (!categoryBreakdown[badge.category]) {
               categoryBreakdown[badge.category] = { total: 0, highestTier: 'bronze' };
             }
             categoryBreakdown[badge.category].total++;
-            
-            const currentTierOrder = tierOrder[badge.tier as keyof typeof tierOrder] || 0;
-            const highestTierOrder = tierOrder[categoryBreakdown[badge.category].highestTier as keyof typeof tierOrder] || 0;
+
+            const currentTierOrder = tierOrder[tier as keyof typeof tierOrder] || 0;
+            const highestTierOrder =
+              tierOrder[categoryBreakdown[badge.category].highestTier as keyof typeof tierOrder] || 0;
             if (currentTierOrder > highestTierOrder) {
-              categoryBreakdown[badge.category].highestTier = badge.tier;
+              categoryBreakdown[badge.category].highestTier = tier;
             }
           });
-          
-          // Calculate rarity breakdown
+
           const rarityBreakdown: { [rarity: string]: number } = {};
-          badges.forEach((badge: any) => {
-            if (!badge.rarity) return;
-            rarityBreakdown[badge.rarity] = (rarityBreakdown[badge.rarity] || 0) + 1;
+          userBadges.forEach((ub: { badge?: { levels?: { tier: string; rarity: string }[] }; currentTier?: string }) => {
+            const tier = ub.currentTier;
+            const level = ub.badge?.levels?.find((l) => l.tier === tier);
+            if (!level?.rarity) return;
+            rarityBreakdown[level.rarity] = (rarityBreakdown[level.rarity] || 0) + 1;
           });
           
           return {

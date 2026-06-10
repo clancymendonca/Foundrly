@@ -1,3 +1,4 @@
+import * as Clipboard from "expo-clipboard";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -7,7 +8,6 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  TextInput,
   View,
   type LayoutChangeEvent,
   type ScrollViewProps,
@@ -16,16 +16,23 @@ import { KeyboardStickyView } from "react-native-keyboard-controller";
 import { useSharedValue, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import type { Channel, LocalMessage } from "stream-chat";
+import type { LocalMessage } from "stream-chat";
 import Toast from "react-native-toast-message";
+import { AttachmentPicker } from "./AttachmentPicker";
 import { ChatAvatar } from "./ChatAvatar";
 import { ChatBanMessage } from "./ChatBanMessage";
+import { ChatComposer } from "./ChatComposer";
+import { ChatDateSeparator } from "./ChatDateSeparator";
+import { MessageActionsSheet, type MessageAction } from "./MessageActionsSheet";
+import { ChatConversationDetails } from "./ChatConversationDetails";
 import { ChatScrollView } from "./ChatScrollView";
+import { MessageBubble } from "./MessageBubble";
+import { TypingIndicator } from "./TypingIndicator";
 import {
   EMOJI_REACTIONS,
   EMOJI_TO_REACTION_TYPE,
-  REACTION_TYPE_TO_EMOJI,
 } from "./reactions";
+import { uploadAndSendAttachment } from "@/lib/chat-attachments";
 import { apiFetch } from "@/lib/api-client";
 import {
   fetchChatProfile,
@@ -34,41 +41,83 @@ import {
   getOtherMemberId,
   type ChatProfile,
 } from "@/lib/chat-utils";
-import { watchMessagingChannel } from "@/lib/channel-routing";
 import { useAuth } from "@/lib/auth-context";
 import { useStreamChat } from "@/lib/stream-chat-context";
 import { screenStyles } from "@/lib/screen-styles";
 import { theme } from "@/lib/theme";
+import { useChannelMessages } from "@/hooks/use-channel-messages";
+import { useChatModerationPref } from "@/hooks/use-chat-moderation-pref";
+import { usePeerPresence } from "@/hooks/use-peer-presence";
+import { useStreamChatPush } from "@/hooks/use-stream-chat-push";
+import { useTypingIndicator } from "@/hooks/use-typing-indicator";
+import { useChatThreadItems, type ChatThreadItem } from "@/lib/chat-thread-items";
 
 interface ChatThreadProps {
   channelId: string;
 }
 
-/** FlatList omits renderScrollComponent in RN 0.85 types but VirtualizedList still supports it. */
-type ChatFlatListProps = React.ComponentProps<typeof FlatList<LocalMessage>> & {
+type ChatFlatListProps = React.ComponentProps<typeof FlatList<ChatThreadItem>> & {
   renderScrollComponent?: (props: ScrollViewProps) => React.ReactElement;
 };
 
 const BASE_FOOTER_HEIGHT = 60;
+const EDIT_WINDOW_MS = 15 * 60 * 1000;
 
 export function ChatThread({ channelId }: ChatThreadProps) {
   const { user } = useAuth();
   const { client, status, banDescription } = useStreamChat();
   const router = useRouter();
-  const [channel, setChannel] = useState<Channel | null>(null);
-  const [messages, setMessages] = useState<LocalMessage[]>([]);
   const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [otherProfile, setOtherProfile] = useState<ChatProfile | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [attachOpen, setAttachOpen] = useState(false);
+  const [activeMessage, setActiveMessage] = useState<LocalMessage | null>(null);
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const [replyTo, setReplyTo] = useState<LocalMessage | null>(null);
+  const [editingMessage, setEditingMessage] = useState<LocalMessage | null>(
+    null,
+  );
   const [activeReactionMessageId, setActiveReactionMessageId] = useState<
     string | null
   >(null);
-  const listRef = useRef<FlatList<LocalMessage>>(null);
-  const unsubRef = useRef<Array<{ unsubscribe: () => void }>>([]);
+
+  const listRef = useRef<FlatList<ChatThreadItem>>(null);
   const insets = useSafeAreaInsets();
   const extraContentPadding = useSharedValue(0);
+
+  const {
+    channel,
+    messages,
+    loading,
+    loadError,
+    loadingEarlier,
+    hasMore,
+    loadEarlier,
+    readRevision,
+  } = useChannelMessages(client, user?.id, channelId, status);
+
+  const { enabled: moderationEnabled, setModerationEnabled } =
+    useChatModerationPref(channelId);
+
+  const threadItems = useChatThreadItems(messages);
+
+  useStreamChatPush(client, user?.id, status === "ready");
+
+  const otherUser = channel
+    ? getChannelOtherUser(channel, user?.id ?? "", messages)
+    : null;
+  const otherUserId = channel && user?.id ? getOtherMemberId(channel, user.id) : null;
+  const otherUserImage = otherProfile?.imageUrl ?? otherUser?.image;
+  const otherUserName =
+    otherProfile?.name ?? otherUser?.name ?? otherUser?.id ?? "Chat";
+
+  const { isPeerTyping, emitTyping, stopTyping } = useTypingIndicator(
+    channel,
+    user?.id,
+  );
+  const { online } = usePeerPresence(channel, otherUserId);
 
   const scrollToLatest = useCallback(() => {
     listRef.current?.scrollToEnd({ animated: true });
@@ -94,108 +143,11 @@ export function ChatThread({ channelId }: ChatThreadProps) {
 
   const isBanned = status === "banned";
 
-  const syncMessages = useCallback((ch: Channel) => {
-    setMessages([...ch.state.messages]);
-  }, []);
-
-  useEffect(() => {
-    if (!client || !user?.id || !channelId || status !== "ready") return;
-
-    let channelInstance: Channel | null = null;
-    let cancelled = false;
-
-    (async () => {
-      setLoading(true);
-      setLoadError(null);
-      try {
-        let resolvedChannelId = channelId;
-
-        try {
-          channelInstance = await watchMessagingChannel(
-            client,
-            user.id,
-            resolvedChannelId,
-          );
-        } catch {
-          const ensured = await apiFetch<{ channelId: string }>(
-            "/api/chat/ensure-channel-access",
-            {
-              method: "POST",
-              body: JSON.stringify({ channelId: resolvedChannelId }),
-            },
-          );
-          resolvedChannelId = ensured.channelId;
-          channelInstance = await watchMessagingChannel(
-            client,
-            user.id,
-            resolvedChannelId,
-          );
-        }
-
-        if (cancelled) return;
-
-        setChannel(channelInstance);
-        if (Object.keys(channelInstance.state.members ?? {}).length < 2) {
-          await channelInstance.query({ members: { limit: 10 } });
-        }
-        syncMessages(channelInstance);
-        await channelInstance.markRead();
-
-        const refresh = () => {
-          syncMessages(channelInstance!);
-        };
-
-        const eventTypes = [
-          "message.new",
-          "message.updated",
-          "reaction.new",
-          "reaction.deleted",
-        ] as const;
-
-        unsubRef.current = eventTypes.map((eventType) =>
-          channelInstance!.on(eventType, () => {
-            refresh();
-            if (eventType === "message.new") {
-              channelInstance?.markRead().catch(() => {});
-            }
-          }),
-        );
-      } catch (e) {
-        const message =
-          e instanceof Error ? e.message : "Failed to load chat";
-        setLoadError(message);
-        Toast.show({
-          type: "error",
-          text1: message,
-        });
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-      unsubRef.current.forEach((sub) => sub.unsubscribe());
-      unsubRef.current = [];
-      if (channelInstance) {
-        channelInstance.stopWatching().catch(() => {});
-      }
-    };
-  }, [client, user?.id, channelId, status, syncMessages]);
-
   useEffect(() => {
     if (messages.length > 0) {
       setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
     }
   }, [messages.length]);
-
-  const otherUser = channel
-    ? getChannelOtherUser(channel, user?.id ?? "", messages)
-    : null;
-  const otherUserImage =
-    otherProfile?.imageUrl ?? otherUser?.image;
-  const otherUserName =
-    otherProfile?.name ?? otherUser?.name ?? otherUser?.id ?? "Chat";
 
   useEffect(() => {
     if (!channel || !user?.id) {
@@ -216,32 +168,56 @@ export function ChatThread({ channelId }: ChatThreadProps) {
     };
   }, [channel, user?.id, messages.length]);
 
+  const moderateText = async (text: string) => {
+    if (!moderationEnabled) return true;
+
+    const data = await apiFetch<{
+      result?: { isFlagged?: boolean; reason?: string };
+    }>("/api/moderation/check", {
+      method: "POST",
+      body: JSON.stringify({ content: text }),
+    });
+
+    if (data.result?.isFlagged) {
+      Toast.show({
+        type: "error",
+        text1: "Message flagged",
+        text2:
+          data.result.reason ||
+          "Your message may violate community guidelines.",
+      });
+      return false;
+    }
+
+    return true;
+  };
+
   const handleSend = async () => {
     if (!input.trim() || !channel || sending || isBanned) return;
 
     setSending(true);
     try {
-      const data = await apiFetch<{ result?: { isFlagged?: boolean; reason?: string } }>(
-        "/api/moderation/check",
-        {
-          method: "POST",
-          body: JSON.stringify({ content: input }),
-        },
-      );
+      const ok = await moderateText(input);
+      if (!ok) return;
 
-      if (data.result?.isFlagged) {
-        Toast.show({
-          type: "error",
-          text1: "Message flagged",
-          text2:
-            data.result.reason ||
-            "Your message may violate community guidelines.",
+      if (editingMessage) {
+        await client!.updateMessage({
+          id: editingMessage.id,
+          text: input.trim(),
         });
-        return;
+        setEditingMessage(null);
+      } else {
+        await channel.sendMessage({
+          text: input.trim(),
+          ...(replyTo
+            ? { parent_id: replyTo.id, show_in_channel: true }
+            : {}),
+        });
+        setReplyTo(null);
       }
 
-      await channel.sendMessage({ text: input.trim() });
       setInput("");
+      stopTyping();
     } catch (e) {
       Toast.show({
         type: "error",
@@ -249,6 +225,30 @@ export function ChatThread({ channelId }: ChatThreadProps) {
       });
     } finally {
       setSending(false);
+    }
+  };
+
+  const handleAttachment = async (
+    picked: Parameters<typeof uploadAndSendAttachment>[1],
+  ) => {
+    if (!channel || uploading || isBanned) return;
+
+    setUploading(true);
+    try {
+      if (input.trim()) {
+        const ok = await moderateText(input);
+        if (!ok) return;
+      }
+      await uploadAndSendAttachment(channel, picked, input.trim() || undefined);
+      setInput("");
+      setReplyTo(null);
+    } catch (e) {
+      Toast.show({
+        type: "error",
+        text1: e instanceof Error ? e.message : "Failed to send attachment",
+      });
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -269,79 +269,69 @@ export function ChatThread({ channelId }: ChatThreadProps) {
     setActiveReactionMessageId(null);
   };
 
-  const getTopReaction = (msg: LocalMessage) => {
-    const reactions = msg.latest_reactions || [];
-    const counts: Record<string, number> = {};
-    reactions.forEach((r) => {
-      const emoji = REACTION_TYPE_TO_EMOJI[r.type];
-      if (emoji) counts[emoji] = (counts[emoji] || 0) + 1;
-    });
-    const entries = Object.entries(counts);
-    if (entries.length === 0) return null;
-    return entries.sort((a, b) => b[1] - a[1])[0][0];
+  const openActions = (msg: LocalMessage) => {
+    setActiveMessage(msg);
+    setActionsOpen(true);
   };
 
-  const renderMessage = ({
-    item: msg,
-    index,
-  }: {
-    item: LocalMessage;
-    index: number;
-  }) => {
-    const messageUserId = getMessageUserId(msg);
-    const isOutgoing = messageUserId === user?.id;
-    const topReaction = getTopReaction(msg);
-    const nextUserId = messages[index + 1]
-      ? getMessageUserId(messages[index + 1])
-      : undefined;
-    const showAvatar =
-      !isOutgoing &&
-      (index === messages.length - 1 || nextUserId !== messageUserId);
+  const handleMessageAction = async (action: MessageAction) => {
+    if (!activeMessage || !client) return;
+
+    switch (action) {
+      case "react":
+        setActiveReactionMessageId(activeMessage.id);
+        break;
+      case "reply":
+        setReplyTo(activeMessage);
+        setEditingMessage(null);
+        break;
+      case "copy":
+        if (activeMessage.text) {
+          await Clipboard.setStringAsync(activeMessage.text);
+          Toast.show({ type: "success", text1: "Copied" });
+        }
+        break;
+      case "edit": {
+        const created = new Date(String(activeMessage.created_at)).getTime();
+        if (Date.now() - created > EDIT_WINDOW_MS) {
+          Toast.show({
+            type: "error",
+            text1: "Edit window expired",
+            text2: "Messages can only be edited within 15 minutes.",
+          });
+          break;
+        }
+        setEditingMessage(activeMessage);
+        setInput(activeMessage.text || "");
+        setReplyTo(null);
+        break;
+      }
+      case "delete":
+        try {
+          await client.deleteMessage(activeMessage.id);
+        } catch {
+          Toast.show({ type: "error", text1: "Could not delete message" });
+        }
+        break;
+    }
+  };
+
+  const renderThreadItem = ({ item }: { item: ChatThreadItem }) => {
+    if (item.type === "date") {
+      return <ChatDateSeparator label={item.label} />;
+    }
 
     return (
-      <View style={styles.messageRow}>
-        {isOutgoing ? (
-          <>
-            <View style={styles.rowSpacer} />
-            <Pressable
-              onLongPress={() => setActiveReactionMessageId(msg.id)}
-              style={[styles.bubble, styles.bubbleOutgoing]}
-            >
-              <Text style={styles.bubbleText}>{msg.text}</Text>
-              {topReaction && (
-                <View style={styles.reactionBadge}>
-                  <Text style={styles.reactionEmoji}>{topReaction}</Text>
-                </View>
-              )}
-            </Pressable>
-          </>
-        ) : (
-          <>
-            {!isOutgoing &&
-              (showAvatar ? (
-                <ChatAvatar
-                  imageUrl={otherUserImage}
-                  name={otherUserName}
-                  size={36}
-                  style={styles.msgAvatar}
-                />
-              ) : (
-                <View style={styles.msgAvatarSpacer} />
-              ))}
-            <Pressable
-              onLongPress={() => setActiveReactionMessageId(msg.id)}
-              style={[styles.bubble, styles.bubbleIncoming]}
-            >
-              <Text style={styles.bubbleText}>{msg.text}</Text>
-              {topReaction && (
-                <View style={styles.reactionBadge}>
-                  <Text style={styles.reactionEmoji}>{topReaction}</Text>
-                </View>
-              )}
-            </Pressable>
-          </>
-        )}
-      </View>
+      <MessageBubble
+        msg={item.message}
+        index={item.messageIndex}
+        messages={messages}
+        userId={user?.id ?? ""}
+        channel={channel}
+        otherUserImage={otherUserImage}
+        otherUserName={otherUserName}
+        onLongPress={openActions}
+      />
     );
   };
 
@@ -375,15 +365,24 @@ export function ChatThread({ channelId }: ChatThreadProps) {
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={24} color={theme.black} />
         </Pressable>
-        <ChatAvatar
-          imageUrl={otherUserImage}
-          name={otherUserName}
-          size={40}
-          style={styles.headerAvatar}
-        />
-        <Text style={styles.headerName} numberOfLines={1}>
-          {otherUserName}
-        </Text>
+        <Pressable
+          style={styles.headerProfile}
+          onPress={() => setDetailsOpen(true)}
+        >
+          <ChatAvatar
+            imageUrl={otherUserImage}
+            name={otherUserName}
+            size={40}
+            online={online}
+            style={styles.headerAvatar}
+          />
+          <View style={styles.headerTextWrap}>
+            <Text style={styles.headerName} numberOfLines={1}>
+              {otherUserName}
+            </Text>
+            <TypingIndicator visible={isPeerTyping} />
+          </View>
+        </Pressable>
       </View>
 
       {isBanned && banDescription && (
@@ -395,9 +394,10 @@ export function ChatThread({ channelId }: ChatThreadProps) {
 
       <FlatList
         ref={listRef}
-        data={messages}
-        keyExtractor={(item, index) => `${item.id}-${index}`}
-        renderItem={renderMessage}
+        data={threadItems}
+        extraData={readRevision}
+        keyExtractor={(item) => item.id}
+        renderItem={renderThreadItem}
         {...({
           renderScrollComponent,
         } satisfies Pick<ChatFlatListProps, "renderScrollComponent">)}
@@ -409,6 +409,20 @@ export function ChatThread({ channelId }: ChatThreadProps) {
         onContentSizeChange={() =>
           listRef.current?.scrollToEnd({ animated: false })
         }
+        onScroll={(event) => {
+          if (event.nativeEvent.contentOffset.y < 48 && hasMore && !loadingEarlier) {
+            loadEarlier();
+          }
+        }}
+        scrollEventThrottle={200}
+        ListHeaderComponent={
+          loadingEarlier ? (
+            <ActivityIndicator
+              color={theme.primary}
+              style={styles.loadEarlier}
+            />
+          ) : null
+        }
       />
 
       {isBanned ? (
@@ -419,34 +433,62 @@ export function ChatThread({ channelId }: ChatThreadProps) {
         </View>
       ) : (
         <KeyboardStickyView offset={{ closed: insets.bottom, opened: 0 }}>
-          <View style={styles.footer} onLayout={onFooterLayout}>
-            <TextInput
-              style={styles.input}
-              placeholder="Type a message..."
-              placeholderTextColor={theme.gray500}
+          <View onLayout={onFooterLayout}>
+            <ChatComposer
               value={input}
-              onChangeText={setInput}
+              onChangeText={(text) => {
+                setInput(text);
+                emitTyping();
+              }}
+              onSend={handleSend}
+              onAttach={() => setAttachOpen(true)}
+              sending={sending}
+              uploading={uploading}
+              replyToName={
+                replyTo
+                  ? replyTo.user?.name || otherUserName
+                  : undefined
+              }
+              replyToText={replyTo?.text || "Attachment"}
+              onDismissReply={() => setReplyTo(null)}
+              editingMessageId={editingMessage?.id}
+              onDismissEdit={() => {
+                setEditingMessage(null);
+                setInput("");
+              }}
               onFocus={() => setTimeout(scrollToLatest, 100)}
-              multiline
-              maxLength={2000}
+              onBlur={stopTyping}
             />
-            <Pressable
-              onPress={handleSend}
-              disabled={!input.trim() || sending}
-              style={[
-                styles.sendBtn,
-                (!input.trim() || sending) && styles.sendBtnDisabled,
-              ]}
-            >
-              {sending ? (
-                <ActivityIndicator color={theme.white} size="small" />
-              ) : (
-                <Ionicons name="send" size={20} color={theme.white} />
-              )}
-            </Pressable>
           </View>
         </KeyboardStickyView>
       )}
+
+      <ChatConversationDetails
+        visible={detailsOpen}
+        onClose={() => setDetailsOpen(false)}
+        channel={channel}
+        messages={messages}
+        otherUserId={otherUserId}
+        otherUserName={otherUserName}
+        otherUserImage={otherUserImage}
+        moderationEnabled={moderationEnabled}
+        onModerationChange={setModerationEnabled}
+      />
+
+      <AttachmentPicker
+        visible={attachOpen}
+        onClose={() => setAttachOpen(false)}
+        onPick={handleAttachment}
+      />
+
+      <MessageActionsSheet
+        visible={actionsOpen}
+        isOwnMessage={
+          !!activeMessage && getMessageUserId(activeMessage) === user?.id
+        }
+        onClose={() => setActionsOpen(false)}
+        onAction={handleMessageAction}
+      />
 
       <Modal
         visible={!!activeReactionMessageId}
@@ -491,104 +533,25 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   backBtn: { padding: 4, marginRight: 4 },
-  headerAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: 10,
-  },
-  headerAvatarFallback: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: 10,
-    backgroundColor: theme.gray200,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerAvatarInitial: {
-    fontFamily: theme.fontFamily.bold,
-    fontSize: 16,
-    color: theme.gray600,
-  },
-  headerName: {
+  headerProfile: {
     flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  headerAvatar: { marginRight: 10 },
+  headerTextWrap: { flex: 1 },
+  headerName: {
     fontFamily: theme.fontFamily.semiBold,
     fontSize: 16,
     color: theme.black,
   },
-  messageList: {
-    flex: 1,
-  },
+  messageList: { flex: 1 },
   messageListContent: {
     paddingHorizontal: 12,
     paddingTop: 16,
     paddingBottom: 8,
   },
-  messageRow: {
-    flexDirection: "row",
-    width: "100%",
-    marginBottom: 12,
-    alignItems: "flex-end",
-  },
-  rowSpacer: { flex: 1 },
-  msgAvatar: {
-    marginRight: 8,
-  },
-  msgAvatarSpacer: { width: 44, marginRight: 8 },
-  bubble: {
-    maxWidth: "75%",
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 18,
-    position: "relative",
-  },
-  bubbleIncoming: { backgroundColor: theme.gray100 },
-  bubbleOutgoing: { backgroundColor: "#DBEAFE" },
-  bubbleText: {
-    fontFamily: theme.fontFamily.regular,
-    fontSize: 16,
-    color: theme.black,
-  },
-  reactionBadge: {
-    position: "absolute",
-    bottom: -8,
-    right: -4,
-    backgroundColor: theme.white,
-    borderRadius: 10,
-    paddingHorizontal: 4,
-    paddingVertical: 1,
-    borderWidth: 1,
-    borderColor: theme.gray200,
-  },
-  reactionEmoji: { fontSize: 12 },
-  footer: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    gap: 8,
-  },
-  input: {
-    flex: 1,
-    backgroundColor: theme.gray100,
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    fontFamily: theme.fontFamily.regular,
-    fontSize: 16,
-    color: theme.black,
-    maxHeight: 100,
-  },
-  sendBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: theme.blue500,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  sendBtnDisabled: { opacity: 0.5 },
+  loadEarlier: { marginVertical: 12 },
   bannedFooter: {
     padding: 16,
     borderTopWidth: 1,

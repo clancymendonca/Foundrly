@@ -6,21 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Brain, TrendingUp, AlertTriangle, Lightbulb, Target } from 'lucide-react';
 import { toast } from 'sonner';
-
-interface PitchAnalysis {
-  overallScore: number;
-  strengths: string[];
-  weaknesses: string[];
-  suggestions: string[];
-  missingElements: string[];
-  marketInsights: {
-    marketSize?: string;
-    competition?: string;
-    trends?: string;
-  };
-  category: string;
-  tags: string[];
-}
+import { getPitchScoreTailwind, type PitchAnalysis } from '@foundrly/shared';
 
 interface AIPitchAnalyzerProps {
   pitch: string;
@@ -83,17 +69,7 @@ export default function AIPitchAnalyzer({
     }
   };
 
-  const getScoreColor = (score: number) => {
-    if (score >= 8) return 'text-green-600';
-    if (score >= 6) return 'text-yellow-600';
-    return 'text-red-600';
-  };
-
-  const getScoreBadgeColor = (score: number) => {
-    if (score >= 8) return 'bg-green-100 text-green-800';
-    if (score >= 6) return 'bg-yellow-100 text-yellow-800';
-    return 'bg-red-100 text-red-800';
-  };
+  const scoreStyle = analysis ? getPitchScoreTailwind(analysis.overallScore) : null;
 
   return (
     <div className="space-y-4">
@@ -143,12 +119,11 @@ export default function AIPitchAnalyzer({
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-4">
-                <div className={`text-4xl font-bold ${getScoreColor(analysis.overallScore)}`}>
+                <div className={`text-4xl font-bold ${scoreStyle?.textClass ?? ''}`}>
                   {analysis.overallScore}/10
                 </div>
-                <Badge className={getScoreBadgeColor(analysis.overallScore)}>
-                  {analysis.overallScore >= 8 ? 'Excellent' : 
-                   analysis.overallScore >= 6 ? 'Good' : 'Needs Improvement'}
+                <Badge className={scoreStyle?.badgeClass ?? ''}>
+                  {scoreStyle?.label ?? 'Needs Improvement'}
                 </Badge>
               </div>
             </CardContent>

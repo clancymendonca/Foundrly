@@ -65,3 +65,33 @@ export async function mobileFirebaseAuth(
     body: JSON.stringify({ idToken }),
   });
 }
+
+export async function apiUpload<T>(
+  path: string,
+  formData: FormData,
+): Promise<T> {
+  const headers: Record<string, string> = {};
+
+  if (authToken) {
+    headers.Authorization = `Bearer ${authToken}`;
+  }
+
+  const res = await fetch(`${API_URL}${path}`, {
+    method: "POST",
+    headers,
+    body: formData,
+  });
+
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    const msg =
+      data.error ||
+      (typeof data === "object" && data !== null && "message" in data
+        ? String((data as { message?: string }).message)
+        : res.statusText);
+    throw new ApiError(msg, res.status);
+  }
+
+  return data as T;
+}

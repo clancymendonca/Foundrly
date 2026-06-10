@@ -12,11 +12,14 @@ import {
 import { BadgeLabels } from "@/components/badges/BadgeLabels";
 import { AppShell } from "@/components/layout/AppShell";
 import { FollowUnfollowButton } from "@/components/profile/FollowUnfollowButton";
+import { ProfileMessageButton } from "@/components/profile/ProfileMessageButton";
 import { UserSaveButton } from "@/components/profile/UserSaveButton";
 import { StartupCard } from "@/components/startup/StartupCard";
 import { NeoCard } from "@/components/ui/NeoCard";
 import { ProfileTitleBadge } from "@/components/ui/ProfileTitleBadge";
 import { useAuth } from "@/lib/auth-context";
+import { fetchUserBadges, rowsToLeveledBadges } from "@/lib/badge-queries";
+import { selectProfileBadges } from "@/lib/badges";
 import { sanityClient } from "@/lib/sanity";
 import { theme, typography } from "@/lib/theme";
 import {
@@ -57,13 +60,7 @@ export default function ProfileScreen() {
 
   const { data: badges } = useQuery({
     queryKey: ["profile-badges", id],
-    queryFn: () =>
-      sanityClient.fetch(
-        `*[_type == "userBadge" && user._ref == $userId]{
-          badge->{ _id, name, description, category, rarity, tier }
-        }[badge.isActive == true] | order(earnedAt desc)`,
-        { userId: id },
-      ),
+    queryFn: () => fetchUserBadges(id!),
     enabled: !!id,
   });
 
@@ -75,8 +72,7 @@ export default function ProfileScreen() {
     : (author?.following ?? []);
 
   const isOwnProfile = user?.id === id;
-  const badgeList =
-    (badges as any[])?.map((b) => b.badge).filter(Boolean) ?? [];
+  const badgeList = selectProfileBadges(rowsToLeveledBadges(badges ?? []));
 
   if (isLoading) {
     return (
@@ -127,7 +123,7 @@ export default function ProfileScreen() {
               ) : null}
 
               {badgeList.length > 0 && (
-                <BadgeLabels badges={badgeList} maxDisplay={6} />
+                <BadgeLabels badges={badgeList} maxDisplay={6} userId={id} />
               )}
 
               <View style={styles.followCounts}>
@@ -148,6 +144,14 @@ export default function ProfileScreen() {
                   setFollowers(f);
                   setFollowing(g);
                 }}
+              />
+
+              <ProfileMessageButton
+                profileId={id}
+                profileName={author?.name}
+                profileUsername={author?.username}
+                profileImage={author?.image}
+                currentUserId={user?.id}
               />
             </NeoCard>
 

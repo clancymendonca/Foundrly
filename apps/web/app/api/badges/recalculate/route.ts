@@ -2,16 +2,31 @@ import { NextRequest, NextResponse } from 'next/server'
 import { client } from '@/sanity/lib/client'
 import { writeClient } from '@/sanity/lib/write-client'
 import { MetricCalculator, TimeframeCalculator, StreakTracker } from '@/lib/badges/enhanced-badge-system'
+import { getSession } from '@/lib/get-session'
+import { isAdminUserId } from '@/lib/admin-auth'
 
 export async function POST(req: NextRequest) {
   try {
+    const session = await getSession()
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const body = await req.json().catch(() => ({}))
     const userId = body?.userId as string | undefined
     const scope = (body?.scope as 'user' | 'all') || (userId ? 'user' : 'all')
 
+    if (scope === 'all' && !isAdminUserId(session.user.id)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
     if (scope === 'user') {
       if (!userId) {
         return NextResponse.json({ error: 'Missing userId' }, { status: 400 })
+      }
+
+      if (userId !== session.user.id && !isAdminUserId(session.user.id)) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
 
       // Load all active badges

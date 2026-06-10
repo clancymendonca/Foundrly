@@ -3,6 +3,7 @@ import { getSession } from '@/lib/get-session';
 import { client } from '@/sanity/lib/client'
 import { writeClient } from '@/sanity/lib/write-client'
 import { logModerationActivity } from '@/sanity/lib/moderation-mutations'
+import { awardBadgesForAction } from '@/lib/badges/award-badges-for-action'
 
 export async function POST(request: NextRequest) {
   try {
@@ -81,6 +82,8 @@ export async function POST(request: NextRequest) {
       itemId: report._id,
       itemType: 'report'
     })
+
+    void awardBadgesForAction(user._id, 'reports_submitted').catch(console.error)
 
     return NextResponse.json({ 
       success: true, 

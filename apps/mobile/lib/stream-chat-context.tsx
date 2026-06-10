@@ -7,23 +7,29 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { Text, View, StyleSheet, Pressable } from "react-native";
+import NetInfo from "@react-native-community/netinfo";
 import { StreamChat } from "stream-chat";
+import { sanitizeStreamUserImage } from "@foundrly/shared";
 import { ApiError, apiFetch } from "./api-client";
 import { STREAM_API_KEY } from "./config";
 import { useAuth } from "./auth-context";
+import { theme } from "./theme";
 
 export type StreamChatStatus =
   | "idle"
   | "loading"
   | "ready"
   | "error"
-  | "banned";
+  | "banned"
+  | "offline";
 
 interface StreamChatContextValue {
   client: StreamChat | null;
   status: StreamChatStatus;
   error: string | null;
   banDescription: string | null;
+  isOffline: boolean;
   retry: () => void;
 }
 
@@ -36,6 +42,7 @@ export function StreamChatProvider({ children }: { children: React.ReactNode }) 
   const [error, setError] = useState<string | null>(null);
   const [banDescription, setBanDescription] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const [isOffline, setIsOffline] = useState(false);
   const clientRef = useRef<StreamChat | null>(null);
 
   const disconnect = useCallback(async () => {
@@ -52,6 +59,18 @@ export function StreamChatProvider({ children }: { children: React.ReactNode }) 
   }, []);
 
   useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener((state) => {
+      const offline = !(state.isConnected && state.isInternetReachable !== false);
+      setIsOffline(offline);
+      if (!offline && status === "offline") {
+        setRetryCount((c) => c + 1);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [status]);
+
+  useEffect(() => {
     if (!user?.id) {
       disconnect();
       setStatus("idle");
@@ -65,6 +84,11 @@ export function StreamChatProvider({ children }: { children: React.ReactNode }) 
       setError(
         "Stream Chat is not configured. Add EXPO_PUBLIC_STREAM_API_KEY to apps/mobile/.env.",
       );
+      return;
+    }
+
+    if (isOffline) {
+      setStatus("offline");
       return;
     }
 
@@ -90,6 +114,7 @@ export function StreamChatProvider({ children }: { children: React.ReactNode }) 
           {
             id: user.id,
             name: user.name || user.id,
+            image: sanitizeStreamUserImage(user.image),
           },
           token,
         );
@@ -124,23 +149,52 @@ export function StreamChatProvider({ children }: { children: React.ReactNode }) 
       cancelled = true;
       disconnect();
     };
-  }, [user?.id, user?.name, user?.image, retryCount, disconnect]);
+  }, [user?.id, user?.name, user?.image, retryCount, disconnect, isOffline]);
 
   const retry = useCallback(() => {
     setRetryCount((c) => c + 1);
   }, []);
 
   const value = useMemo(
-    () => ({ client, status, error, banDescription, retry }),
-    [client, status, error, banDescription, retry],
+    () => ({ client, status, error, banDescription, isOffline, retry }),
+    [client, status, error, banDescription, isOffline, retry],
   );
 
   return (
     <StreamChatContext.Provider value={value}>
+      {isOffline ? (
+        <View style={bannerStyles.banner}>
+          <Text style={bannerStyles.bannerText}>You are offline</Text>
+          <Pressable onPress={retry}>
+            <Text style={bannerStyles.retryText}>Retry</Text>
+          </Pressable>
+        </View>
+      ) : null}
       {children}
     </StreamChatContext.Provider>
   );
 }
+
+const bannerStyles = StyleSheet.create({
+  banner: {
+    backgroundColor: theme.gray700,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  bannerText: {
+    color: theme.white,
+    fontFamily: theme.fontFamily.medium,
+    fontSize: 13,
+  },
+  retryText: {
+    color: theme.categoryTag,
+    fontFamily: theme.fontFamily.semiBold,
+    fontSize: 13,
+  },
+});
 
 export function useStreamChat() {
   const ctx = useContext(StreamChatContext);

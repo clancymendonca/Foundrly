@@ -14,13 +14,14 @@ import { formSchema } from "@/lib/validation";
 import { createPitch } from "@/lib/actions";
 import { uploadImage } from "@/lib/upload";
 import { BanCheckWrapper } from "@/components/moderation/BanCheckWrapper";
+import { extractGeneratedPitch, type PitchAnalysis } from "@foundrly/shared";
 
 const StartupFormContent = ({ isBanned, banMessage, banLoading }: { 
   isBanned: boolean; 
   banMessage: string; 
   banLoading: boolean; 
 }) => {
-  const [pitchAnalysis, setPitchAnalysis] = useState(null);
+  const [pitchAnalysis, setPitchAnalysis] = useState<PitchAnalysis | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -308,41 +309,9 @@ const StartupFormContent = ({ isBanned, banMessage, banLoading }: {
                   const data = await response.json();
                   console.log("[StartupForm] AI Response:", JSON.stringify(data, null, 2));
                   if (!response.ok || !data.success) throw new Error(data.message || "AI generation failed");
-                  // Try multiple possible response formats
-                  let generatedPitch = "";
-                  if (data.content?.pitch) {
-                    generatedPitch = data.content.pitch;
-                  } else if (data.pitch) {
-                    generatedPitch = data.pitch;
-                  } else if (typeof data.content === "string") {
-                    generatedPitch = data.content;
-                  }
-                  // If still empty, try to parse JSON from description
-                  if (!generatedPitch && data.content?.description) {
-                    try {
-                      const match = data.content.description.match(/```json\n([\s\S]*?)\n```/);
-                      if (match && match[1]) {
-                        let jsonStr = match[1];
-                        // Clean up bad escape sequences (remove double backslashes, fix quotes)
-                        jsonStr = jsonStr.replace(/\\([\"'])/g, '$1');
-                        // Try parsing
-                        try {
-                          const parsed = JSON.parse(jsonStr);
-                          if (parsed.pitch) {
-                            generatedPitch = parsed.pitch;
-                          }
-                        } catch (jsonErr) {
-                          // Fallback: extract pitch with regex
-                          const pitchMatch = jsonStr.match(/"pitch"\s*:\s*"([\s\S]*?)"\s*,/);
-                          if (pitchMatch && pitchMatch[1]) {
-                            generatedPitch = pitchMatch[1].replace(/\\n/g, '\n');
-                          }
-                          console.warn("[StartupForm] Fallback pitch extraction used due to JSON parse error", jsonErr);
-                        }
-                      }
-                    } catch (err) {
-                      console.warn("[StartupForm] Failed to extract pitch from description JSON block", err);
-                    }
+                  const generatedPitch = extractGeneratedPitch(data);
+                  if (!generatedPitch) {
+                    throw new Error("AI did not return pitch content");
                   }
                   setPitch(generatedPitch);
                   toast({ title: "AI Pitch Generated", description: "You can edit or submit this pitch." });

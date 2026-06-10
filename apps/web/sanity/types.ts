@@ -146,12 +146,19 @@ export type UserBadge = {
     _weak?: boolean;
     [internalGroqTypeReferenceTo]?: "badge";
   };
+  currentTier?: "bronze" | "silver" | "gold" | "platinum" | "diamond";
   earnedAt?: string;
+  completedAt?: string;
   progress?: {
     current?: number;
     target?: number;
     percentage?: number;
   };
+  tierHistory?: Array<{
+    tier?: string;
+    earnedAt?: string;
+    _key: string;
+  }>;
   metadata?: {
     context?: string;
     relatedContent?: {
@@ -179,14 +186,19 @@ export type Badge = {
   category?: "creator" | "community" | "social" | "achievement" | "special";
   icon?: string;
   color?: string;
-  rarity?: "common" | "uncommon" | "rare" | "epic" | "legendary";
-  tier?: "bronze" | "silver" | "gold" | "platinum" | "diamond";
+  metric?: "startups_created" | "comments_posted" | "replies_posted" | "likes_received" | "followers_gained" | "users_followed" | "views_received" | "days_active" | "reports_submitted";
   criteria?: {
     type?: "count" | "streak" | "date" | "combination";
-    target?: number;
-    metric?: "startups_created" | "comments_posted" | "likes_received" | "followers_gained" | "users_followed" | "views_received" | "days_active" | "reports_submitted";
     timeframe?: "all_time" | "daily" | "weekly" | "monthly" | "yearly";
   };
+  levels?: Array<{
+    tier?: "bronze" | "silver" | "gold" | "platinum" | "diamond";
+    target?: number;
+    rarity?: "common" | "uncommon" | "rare" | "epic" | "legendary" | "mythical";
+    description?: string;
+    _type: "badgeLevel";
+    _key: string;
+  }>;
   isActive?: boolean;
 };
 

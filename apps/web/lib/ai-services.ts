@@ -2432,29 +2432,59 @@ Title: ${title}
 Category: ${category}
 Pitch: ${pitch}
 
-Please provide:
-1. Overall score (1-10)
-2. Strengths (3-5 points)
-3. Weaknesses (3-5 points)
-4. Improvement suggestions (3-5 points)
-5. Market insights
-6. Recommended tags
-7. Confidence level (0-1)
+Please provide a detailed evaluation with:
+1. Overall score (1-10 integer)
+2. Strengths (3-5 specific bullet points about what works well)
+3. Weaknesses (3-5 specific areas that need improvement)
+4. Improvement suggestions (3-5 actionable recommendations)
+5. Missing elements (3-5 pitch sections or topics not covered, e.g. problem statement, traction, monetization, team, competitive advantage)
+6. Market insights as an object with marketSize, competition, and trends (each a short paragraph)
+7. Suggested category (single string, e.g. FinTech, HealthTech)
+8. Recommended tags (5-7 relevant tags)
+9. Confidence level (0-1 decimal reflecting how confident you are in this analysis)
 
-Format as JSON with fields: score, strengths, weaknesses, suggestions, marketInsights, recommendedTags, confidence.`;
+Return ONLY valid JSON with these exact fields:
+{
+  "score": number,
+  "strengths": string[],
+  "weaknesses": string[],
+  "suggestions": string[],
+  "missingElements": string[],
+  "marketInsights": { "marketSize": string, "competition": string, "trends": string },
+  "category": string,
+  "recommendedTags": string[],
+  "confidence": number
+}`;
 
-      const analysis = await this.generateText(prompt, 1000);
-      
+      const analysis = await this.generateText(prompt, 1500);
+
       try {
-        const parsedAnalysis = JSON.parse(analysis);
-        // Ensure all required fields are present and fallback if missing
+        let cleanedContent = analysis.trim();
+        if (cleanedContent.startsWith('```json')) {
+          cleanedContent = cleanedContent.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+        } else if (cleanedContent.startsWith('```')) {
+          cleanedContent = cleanedContent.replace(/^```\s*/, '').replace(/\s*```$/, '');
+        }
+
+        const parsedAnalysis = JSON.parse(cleanedContent);
+        const marketInsights =
+          typeof parsedAnalysis.marketInsights === 'object' && parsedAnalysis.marketInsights !== null
+            ? {
+                marketSize: typeof parsedAnalysis.marketInsights.marketSize === 'string' ? parsedAnalysis.marketInsights.marketSize : undefined,
+                competition: typeof parsedAnalysis.marketInsights.competition === 'string' ? parsedAnalysis.marketInsights.competition : undefined,
+                trends: typeof parsedAnalysis.marketInsights.trends === 'string' ? parsedAnalysis.marketInsights.trends : undefined,
+              }
+            : typeof parsedAnalysis.marketInsights === 'string'
+              ? { marketSize: parsedAnalysis.marketInsights }
+              : {};
+
         return {
           overallScore: typeof parsedAnalysis.score === 'number' ? parsedAnalysis.score : 7,
           strengths: Array.isArray(parsedAnalysis.strengths) && parsedAnalysis.strengths.length > 0 ? parsedAnalysis.strengths : ['Clear concept', 'Good potential'],
           weaknesses: Array.isArray(parsedAnalysis.weaknesses) && parsedAnalysis.weaknesses.length > 0 ? parsedAnalysis.weaknesses : ['Needs more detail', 'Market validation required'],
           suggestions: Array.isArray(parsedAnalysis.suggestions) && parsedAnalysis.suggestions.length > 0 ? parsedAnalysis.suggestions : ['Add market research', 'Define target audience'],
-          missingElements: Array.isArray(parsedAnalysis.missingElements) ? parsedAnalysis.missingElements : [],
-          marketInsights: typeof parsedAnalysis.marketInsights === 'object' && parsedAnalysis.marketInsights !== null ? parsedAnalysis.marketInsights : {},
+          missingElements: Array.isArray(parsedAnalysis.missingElements) && parsedAnalysis.missingElements.length > 0 ? parsedAnalysis.missingElements : [],
+          marketInsights,
           category: typeof parsedAnalysis.category === 'string' && parsedAnalysis.category ? parsedAnalysis.category : '',
           tags: Array.isArray(parsedAnalysis.recommendedTags) && parsedAnalysis.recommendedTags.length > 0 ? parsedAnalysis.recommendedTags : [category.toLowerCase()],
           confidence: typeof parsedAnalysis.confidence === 'number' ? parsedAnalysis.confidence : 0.7

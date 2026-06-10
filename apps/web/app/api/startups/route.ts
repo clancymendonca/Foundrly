@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/get-session";
 import { createStartup } from "@/lib/startup-service";
+import { awardBadgesForAction } from "@/lib/badges/award-badges-for-action";
 import { sanityFetch } from "@/sanity/lib/live";
 import { STARTUPS_SORTED_QUERY } from "@/sanity/lib/queries";
 
@@ -39,6 +40,8 @@ export async function POST(req: NextRequest) {
     if (result.status === "ERROR") {
       return NextResponse.json({ error: result.error }, { status: 400 });
     }
+
+    void awardBadgesForAction(session.user.id, "startups_created").catch(console.error);
 
     return NextResponse.json(result.data, { status: 201 });
   } catch (error) {

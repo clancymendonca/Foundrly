@@ -10,7 +10,8 @@
     "./types": "./src/types/index.ts",
     "./validation": "./src/validation.ts",
     "./queries": "./src/queries/index.ts",
-    "./api-types": "./src/api-types.ts"
+    "./api-types": "./src/api-types.ts",
+    "./badges": "./src/badges.ts"
   },
   "dependencies": {
     "zod": "^3.24.1"

@@ -1,95 +1,28 @@
 /** Canonical enhanced badge system (primary API for badges UI and recalculation). */
+import {
+  calculateTrackProgress,
+  sortBadgeTracks,
+  TIER_ORDER,
+  type BadgeLevel,
+  type BadgeTier,
+  type LeveledBadge,
+} from "@foundrly/shared/badges";
 import { client } from '@/sanity/lib/client';
+import { badgeReadClient } from '@/sanity/lib/badge-read-client';
+import { writeClient } from '@/sanity/lib/write-client';
 
-// Enhanced rarity levels with custom styling
-export const RARITY_LEVELS = {
-  common: {
-    label: "Common",
-    color: "#6B7280",
-    bgColor: "#F3F4F6",
-    borderColor: "#D1D5DB",
-    multiplier: 1.0
-  },
-  uncommon: {
-    label: "Uncommon", 
-    color: "#059669",
-    bgColor: "#D1FAE5",
-    borderColor: "#34D399",
-    multiplier: 1.5
-  },
-  rare: {
-    label: "Rare",
-    color: "#2563EB", 
-    bgColor: "#DBEAFE",
-    borderColor: "#60A5FA",
-    multiplier: 2.0
-  },
-  epic: {
-    label: "Epic",
-    color: "#7C3AED",
-    bgColor: "#EDE9FE", 
-    borderColor: "#A78BFA",
-    multiplier: 3.0
-  },
-  legendary: {
-    label: "Legendary",
-    color: "#DC2626",
-    bgColor: "#FEE2E2",
-    borderColor: "#F87171", 
-    multiplier: 5.0
-  },
-  mythical: {
-    label: "Mythical",
-    color: "#FFD700",
-    bgColor: "#FEF3C7",
-    borderColor: "#FCD34D",
-    multiplier: 10.0
-  }
-};
-
-// Tier levels with custom styling
-export const TIER_LEVELS = {
-  bronze: {
-    label: "Bronze",
-    color: "#CD7F32",
-    bgColor: "#FDF2F8",
-    borderColor: "#F472B6",
-    icon: "🥉",
-    multiplier: 1.0
-  },
-  silver: {
-    label: "Silver", 
-    color: "#C0C0C0",
-    bgColor: "#F8FAFC",
-    borderColor: "#94A3B8",
-    icon: "🥈",
-    multiplier: 1.2
-  },
-  gold: {
-    label: "Gold",
-    color: "#FFD700", 
-    bgColor: "#FFFBEB",
-    borderColor: "#FCD34D",
-    icon: "🥇",
-    multiplier: 1.5
-  },
-  platinum: {
-    label: "Platinum",
-    color: "#E5E4E2",
-    bgColor: "#F1F5F9", 
-    borderColor: "#CBD5E1",
-    icon: "💎",
-    multiplier: 2.0
-  },
-  diamond: {
-    label: "Diamond",
-    color: "#B9F2FF",
-    bgColor: "#F0FDFF",
-    borderColor: "#67E8F9", 
-    icon: "💠",
-    multiplier: 3.0
-  }
-};
+export {
+  RARITY_LEVELS,
+  TIER_LEVELS,
+  TIER_ORDER,
+  TIER_LIST,
+  calculateTrackProgress,
+  sortBadgeTracks,
+  type BadgeLevel,
+  type BadgeRarity,
+  type BadgeTier,
+  type LeveledBadge,
+} from "@foundrly/shared/badges";
 
 // Extended metrics for comprehensive tracking
 export const EXTENDED_METRICS = {
@@ -139,20 +72,10 @@ export const EXTENDED_METRICS = {
 // Enhanced badge criteria interface
 export interface EnhancedBadgeCriteria {
   type: 'count' | 'streak' | 'date' | 'combination' | 'quality' | 'time';
-  target: number;
-  metric: string;
   timeframe: string;
-  requirements?: {
-    metric: string;
-    target: number;
-    timeframe: string;
-    operator: 'AND' | 'OR' | 'XOR';
-  }[];
-  bonusMultiplier?: number;
-  customConditions?: string[];
 }
 
-// Enhanced badge interface
+// Leveled badge track (one Sanity doc per metric)
 export interface EnhancedBadge {
   _id: string;
   name: string;
@@ -160,8 +83,9 @@ export interface EnhancedBadge {
   category: string;
   icon: string;
   color: string;
-  rarity: keyof typeof RARITY_LEVELS;
+  metric: string;
   criteria: EnhancedBadgeCriteria;
+  levels: BadgeLevel[];
   isActive: boolean;
   customStyles?: {
     gradient?: boolean;
@@ -273,7 +197,7 @@ export class TimeframeCalculator {
 // Enhanced streak tracking
 export class StreakTracker {
   private static instance: StreakTracker;
-  private userStreaks: Map<string, Map<string, number>> = new Map();
+  private userStreaks: Map<string, number> = new Map();
 
   static getInstance(): StreakTracker {
     if (!StreakTracker.instance) {
@@ -568,7 +492,12 @@ export class MetricCalculator {
         
         case 'comments_posted':
           return await client.fetch(`
-            count(*[_type == "comment" && author._ref == $userId && _createdAt >= $start && _createdAt <= $end])
+            count(*[_type == "comment" && author._ref == $userId && !defined(parent) && _createdAt >= $start && _createdAt <= $end])
+          `, { userId, start: start.toISOString(), end: end.toISOString() });
+
+        case 'replies_posted':
+          return await client.fetch(`
+            count(*[_type == "comment" && author._ref == $userId && defined(parent) && _createdAt >= $start && _createdAt <= $end])
           `, { userId, start: start.toISOString(), end: end.toISOString() });
         
         case 'likes_received':
@@ -595,19 +524,18 @@ export class MetricCalculator {
           `, { userId, start: start.toISOString(), end: end.toISOString() });
           return viewsResult.reduce((sum: number, item: any) => sum + (item.views || 0), 0);
         
-        case 'days_active':
-          const user = await client.fetch(`
-            *[_type == "author" && _id == $userId][0] {
-              _createdAt
-            }
-          `, { userId });
-          
-          if (!user?._createdAt) return 0;
-          
-          const created = new Date(user._createdAt);
-          const now = new Date();
-          const diffTime = Math.abs(now.getTime() - created.getTime());
-          return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        case 'days_active': {
+          const activityDates = await client.fetch<string[]>(`
+            array::unique(
+              *[_type in ["startup", "comment"] && author._ref == $userId && _createdAt >= $start && _createdAt <= $end]._createdAt
+            )
+          `, { userId, start: start.toISOString(), end: end.toISOString() });
+
+          const uniqueDays = new Set(
+            (activityDates ?? []).map((iso) => iso.slice(0, 10)),
+          );
+          return uniqueDays.size;
+        }
         
         case 'users_followed':
           const followingResult = await client.fetch(`
@@ -654,80 +582,93 @@ export class EnhancedBadgeSystem {
     await this.loadBadges();
   }
 
+  /** Clear cached catalog so the next load fetches fresh Sanity data. */
+  invalidateBadgeCatalog() {
+    this.badges = [];
+  }
+
   private async ensureInitialized(): Promise<void> {
-    if (!this.badges || this.badges.length === 0) {
-      await this.loadBadges();
-    }
+    await this.loadBadges();
   }
 
   private async loadBadges() {
+    const query = `
+      *[_type == "badge" && isActive == true] {
+        _id,
+        name,
+        description,
+        category,
+        icon,
+        color,
+        metric,
+        criteria,
+        levels,
+        isActive,
+        customStyles
+      }
+    `;
+
     try {
-      this.badges = await client.fetch(`
-        *[_type == "badge" && isActive == true] | order(category asc, target asc) {
-          _id,
-          name,
-          description,
-          category,
-          icon,
-          color,
-          rarity,
-          criteria,
-          isActive,
-          customStyles
-        }
-      `);
+      const badges = await badgeReadClient.fetch(query);
+      this.badges = sortBadgeTracks(badges as EnhancedBadge[]);
+
+      if (this.badges.length === 0) {
+        console.warn(
+          'Badge catalog empty from Sanity (fresh read). Run: node scripts/seed-badges.js',
+        );
+      }
     } catch (error) {
       console.error('Failed to load enhanced badges:', error);
+      this.badges = [];
     }
   }
 
   async checkAndAwardBadges(userId: string, action: string, context?: any): Promise<any[]> {
-    const newBadges: any[] = [];
-    
-    for (const badge of this.badges) {
-      if (this.shouldCheckBadge(badge, action)) {
-        const progress = await this.calculateEnhancedProgress(userId, badge);
-        
-        if (progress.isEarned && !(await this.hasBadge(userId, badge._id))) {
-          const userBadge = await this.awardEnhancedBadge(userId, badge, progress, context);
-          if (userBadge) {
-            newBadges.push(userBadge);
-          }
-        }
+    await this.ensureInitialized();
+    const upgraded: any[] = [];
+
+    for (const track of this.badges) {
+      if (track.metric !== action) continue;
+      const result = await this.syncTrackForUser(userId, track, context);
+      if (result?.newlyLeveled) {
+        upgraded.push(result.userBadge);
       }
     }
 
-    return newBadges;
+    return upgraded;
   }
 
   // Recalculate badges for a given user against current data
+  invalidateUserBadgeCache(userId: string) {
+    this.userBadges.delete(userId);
+  }
+
   async recalculateUserBadges(userId: string): Promise<{ awarded: number; alreadyHad: number; checked: number; details: any[] }>{
     await this.ensureInitialized();
+    this.invalidateUserBadgeCache(userId);
 
     const results: any[] = [];
     let awarded = 0;
     let alreadyHad = 0;
     let checked = 0;
 
-    for (const badge of this.badges) {
+    for (const track of this.badges) {
       checked++;
       try {
-        const hasAlready = await this.hasBadge(userId, badge._id);
-        const progress = await this.calculateEnhancedProgress(userId, badge);
+        const hadTier = await this.getUserTrackBadge(userId, track._id);
+        const syncResult = await this.syncTrackForUser(userId, track, { action: 'recalculate' });
 
-        if (progress.isEarned) {
-          if (!hasAlready) {
-            const created = await this.awardEnhancedBadge(userId, badge, progress, { action: 'recalculate' });
-            awarded++;
-            results.push({ badgeId: badge._id, name: badge.name, awarded: true });
-          } else {
-            alreadyHad++;
-            results.push({ badgeId: badge._id, name: badge.name, awarded: false });
-          }
+        if (syncResult?.newlyLeveled) {
+          awarded++;
+          results.push({ badgeId: track._id, name: track.name, awarded: true });
+        } else if (hadTier?.currentTier) {
+          alreadyHad++;
+          results.push({ badgeId: track._id, name: track.name, awarded: false });
+        } else {
+          results.push({ badgeId: track._id, name: track.name, awarded: false });
         }
-      } catch (error) {
-        // continue with next badge
-        results.push({ badgeId: badge._id, name: badge.name, error: true });
+      } catch {
+        results.push({ badgeId: track._id, name: track.name, error: true });
       }
     }
 
@@ -751,159 +692,143 @@ export class EnhancedBadgeSystem {
     return { usersProcessed: authors.length, totalAwarded };
   }
 
-  private shouldCheckBadge(badge: EnhancedBadge, action: string): boolean {
-    if (badge.criteria.metric === action) return true;
-    
-    // Check combination criteria
-    if (badge.criteria.type === 'combination' && badge.criteria.requirements) {
-      return badge.criteria.requirements.some(req => req.metric === action);
-    }
-    
-    return false;
-  }
-
-  private async calculateEnhancedProgress(userId: string, badge: EnhancedBadge): Promise<any> {
-    const { criteria } = badge;
-    
-    switch (criteria.type) {
-      case 'streak':
-        return await this.calculateStreakProgress(userId, badge);
-      case 'combination':
-        return await this.calculateCombinationProgress(userId, badge);
-      case 'quality':
-        return await this.calculateQualityProgress(userId, badge);
-      case 'time':
-        return await this.calculateTimeProgress(userId, badge);
-      default:
-        return await this.calculateBasicProgress(userId, badge);
-    }
-  }
-
-  private async calculateStreakProgress(userId: string, badge: EnhancedBadge): Promise<any> {
-    const { metric, target, timeframe } = badge.criteria;
-    
-    const streakResult = await this.streakTracker.checkStreakBadge(userId, metric, timeframe);
-    
-    // Fix the math: ensure current and target are numbers, and handle edge cases
-    const currentNum = typeof streakResult.currentStreak === 'number' ? streakResult.currentStreak : 0;
-    const targetNum = typeof target === 'number' ? target : 1;
-    
-    // Calculate percentage correctly
-    const percentage = targetNum > 0 ? Math.min((currentNum / targetNum) * 100, 100) : 0;
-    const isEarned = currentNum >= targetNum;
-    
-    return {
-      badgeId: badge._id,
-      current: currentNum,
-      target: targetNum,
-      percentage: Math.round(percentage),
-      isEarned
-    };
-  }
-
-  private async calculateCombinationProgress(userId: string, badge: EnhancedBadge): Promise<any> {
-    if (!badge.criteria.requirements) {
-      return { badgeId: badge._id, current: 0, target: 1, percentage: 0, isEarned: false };
-    }
-    
-    let allRequirementsMet = true;
-    let totalProgress = 0;
-    
-    for (const requirement of badge.criteria.requirements) {
-      const progress = await MetricCalculator.calculateMetric(
-        userId, 
-        requirement.metric, 
-        requirement.timeframe
-      );
-      
-      if (progress < requirement.target) {
-        allRequirementsMet = false;
-      }
-      
-      totalProgress += Math.min(progress / requirement.target, 1);
-    }
-    
-    const averageProgress = totalProgress / badge.criteria.requirements.length;
-    const isEarned = allRequirementsMet;
-    
-    return {
-      badgeId: badge._id,
-      current: Math.round(averageProgress * 100),
-      target: 100,
-      percentage: Math.round(averageProgress * 100),
-      isEarned
-    };
-  }
-
-  private async calculateQualityProgress(userId: string, badge: EnhancedBadge): Promise<any> {
-    const { metric, target, timeframe } = badge.criteria;
-    
-    const current = await MetricCalculator.calculateMetric(userId, metric, timeframe);
-    
-    // Fix the math: ensure current and target are numbers, and handle edge cases
-    const currentNum = typeof current === 'number' ? current : 0;
-    const targetNum = typeof target === 'number' ? target : 1;
-    
-    // Calculate percentage correctly
-    const percentage = targetNum > 0 ? Math.min((currentNum / targetNum) * 100, 100) : 0;
-    const isEarned = currentNum >= targetNum;
-    
-    return {
-      badgeId: badge._id,
-      current: currentNum,
-      target: targetNum,
-      percentage: Math.round(percentage),
-      isEarned
-    };
-  }
-
-  private async calculateTimeProgress(userId: string, badge: EnhancedBadge): Promise<any> {
-    const { metric, target, timeframe } = badge.criteria;
-    
-    const current = await MetricCalculator.calculateMetric(userId, metric, timeframe);
-    
-    // Fix the math: ensure current and target are numbers, and handle edge cases
-    const currentNum = typeof current === 'number' ? current : 0;
-    const targetNum = typeof target === 'number' ? target : 1;
-    
-    // Calculate percentage correctly
-    const percentage = targetNum > 0 ? Math.min((currentNum / targetNum) * 100, 100) : 0;
-    const isEarned = currentNum >= targetNum;
-    
-    return {
-      badgeId: badge._id,
-      current: currentNum,
-      target: targetNum,
-      percentage: Math.round(percentage),
-      isEarned
-    };
-  }
-
-  private async calculateBasicProgress(userId: string, badge: EnhancedBadge): Promise<any> {
-    const { metric, target, timeframe } = badge.criteria;
-    
-    const current = await MetricCalculator.calculateMetric(userId, metric, timeframe);
-    
-    // Fix the math: ensure current and target are numbers, and handle edge cases
-    const currentNum = typeof current === 'number' ? current : 0;
-    const targetNum = typeof target === 'number' ? target : 1;
-    
-    // Calculate percentage correctly
-    const percentage = targetNum > 0 ? Math.min((currentNum / targetNum) * 100, 100) : 0;
-    const isEarned = currentNum >= targetNum;
-    
-    return {
-      badgeId: badge._id,
-      current: currentNum,
-      target: targetNum,
-      percentage: Math.round(percentage),
-      isEarned
-    };
-  }
-
-  private async hasBadge(userId: string, badgeId: string): Promise<boolean> {
+  private async getUserTrackBadge(userId: string, trackId: string) {
     const userBadges = await this.getUserBadges(userId);
-    return userBadges.some(ub => ub.badge._id === badgeId);
+    return userBadges.find((ub) => ub.badge?._id === trackId) ?? null;
+  }
+
+  private tierOrderValue(tier: BadgeTier | null | undefined): number {
+    if (!tier) return 0;
+    return TIER_ORDER[tier] ?? 0;
+  }
+
+  async calculateTrackProgressForUser(userId: string, track: EnhancedBadge) {
+    const timeframe = track.criteria?.timeframe ?? 'all_time';
+    const metricValue = await MetricCalculator.calculateMetric(
+      userId,
+      track.metric,
+      timeframe,
+    );
+    const levels = track.levels ?? [];
+    return {
+      metricValue,
+      ...calculateTrackProgress(metricValue, levels),
+    };
+  }
+
+  private async syncTrackForUser(
+    userId: string,
+    track: EnhancedBadge,
+    context?: Record<string, unknown>,
+  ): Promise<{ userBadge: any; newlyLeveled: boolean } | null> {
+    const progress = await this.calculateTrackProgressForUser(userId, track);
+    if (!progress.currentTier && progress.metricValue <= 0) {
+      return null;
+    }
+
+    const existing = await this.getUserTrackBadge(userId, track._id);
+    const previousTier = existing?.currentTier as BadgeTier | null | undefined;
+    const newTier = progress.currentTier;
+
+    if (!newTier) {
+      return null;
+    }
+
+    const tierAdvanced =
+      this.tierOrderValue(newTier) > this.tierOrderValue(previousTier);
+    const now = new Date().toISOString();
+
+    const tierHistory = [...(existing?.tierHistory ?? [])];
+    if (tierAdvanced) {
+      for (const level of track.levels) {
+        const alreadyRecorded = tierHistory.some((h: { tier?: string }) => h.tier === level.tier);
+        if (
+          !alreadyRecorded &&
+          progress.metricValue >= level.target &&
+          this.tierOrderValue(level.tier) <= this.tierOrderValue(newTier)
+        ) {
+          tierHistory.push({ tier: level.tier, earnedAt: now });
+        }
+      }
+    }
+
+    const payload = {
+      currentTier: newTier,
+      earnedAt: existing?.earnedAt ?? now,
+      completedAt: progress.isComplete ? (existing?.completedAt ?? now) : undefined,
+      progress: progress.progress,
+      tierHistory,
+      metadata: context
+        ? {
+            context: context.action as string | undefined,
+            relatedContent: context.contentId
+              ? { _ref: context.contentId as string, _type: 'reference' as const }
+              : undefined,
+          }
+        : existing?.metadata,
+    };
+
+    let userBadge = existing;
+
+    if (existing) {
+      await writeClient
+        .patch(existing._id)
+        .set(payload)
+        .commit();
+      userBadge = { ...existing, ...payload };
+    } else {
+      userBadge = await writeClient.create({
+        _type: 'userBadge',
+        user: { _ref: userId, _type: 'reference' },
+        badge: { _ref: track._id, _type: 'reference' },
+        ...payload,
+      });
+    }
+
+    this.invalidateUserBadgeCache(userId);
+
+    if (tierAdvanced) {
+      await this.createEnhancedBadgeNotification(userId, track, newTier);
+    }
+
+    return { userBadge, newlyLeveled: tierAdvanced };
+  }
+
+  async getLeveledBadges(userId: string): Promise<LeveledBadge[]> {
+    await this.ensureInitialized();
+    const userBadges = await this.getUserBadges(userId);
+    const userBadgeByTrack = new Map(
+      userBadges.map((ub) => [ub.badge?._id, ub]),
+    );
+
+    const results: LeveledBadge[] = [];
+
+    for (const track of this.badges) {
+      const progress = await this.calculateTrackProgressForUser(userId, track);
+      const userBadge = userBadgeByTrack.get(track._id);
+
+      results.push({
+        _id: track._id,
+        name: track.name,
+        description: track.description,
+        category: track.category,
+        icon: track.icon,
+        color: track.color,
+        metric: track.metric,
+        levels: track.levels ?? [],
+        currentTier: progress.currentTier,
+        nextTier: progress.nextTier,
+        currentLevelIndex: progress.currentLevelIndex,
+        progress: progress.progress,
+        isComplete: progress.isComplete,
+        isEarned: progress.isComplete,
+        earnedAt: userBadge?.earnedAt,
+        completedAt: userBadge?.completedAt,
+        isActive: track.isActive,
+      });
+    }
+
+    return results;
   }
 
   async getUserBadges(userId: string): Promise<any[]> {
@@ -916,6 +841,12 @@ export class EnhancedBadgeSystem {
         *[_type == "userBadge" && user._ref == $userId] {
           _id,
           user,
+          currentTier,
+          earnedAt,
+          completedAt,
+          progress,
+          tierHistory,
+          metadata,
           badge->{
             _id,
             name,
@@ -923,13 +854,12 @@ export class EnhancedBadgeSystem {
             category,
             icon,
             color,
-            rarity,
+            metric,
             criteria,
+            levels,
+            isActive,
             customStyles
-          },
-          earnedAt,
-          progress,
-          metadata
+          }
         }
       `, { userId });
 
@@ -941,215 +871,38 @@ export class EnhancedBadgeSystem {
     }
   }
 
-  async getAllBadges(): Promise<any[]> {
-    try {
-      const allBadges = await client.fetch(`
-        *[_type == "badge" && isActive == true] | order(category asc, target asc) {
-          _id,
-          name,
-          description,
-          category,
-          icon,
-          color,
-          rarity,
-          tier,
-          criteria,
-          customStyles,
-          isActive
-        }
-      `);
-      return allBadges;
-    } catch (error) {
-      console.error('Failed to load all badges:', error);
-      return [];
-    }
+  async getAllBadges(): Promise<EnhancedBadge[]> {
+    await this.ensureInitialized();
+    return this.badges;
   }
 
+  /** @deprecated Use getLeveledBadges instead */
   async getNextTierBadges(userId: string): Promise<any[]> {
-    try {
-      const allBadges = await this.getAllBadges();
-      const userBadges = await this.getUserBadges(userId);
-      const earnedBadgeIds = new Set(userBadges.map(ub => ub.badge._id));
-      
-      // Group badges by category and tier
-      const badgesByCategory: { [key: string]: any[] } = {};
-      
-      allBadges.forEach(badge => {
-        if (!badgesByCategory[badge.category]) {
-          badgesByCategory[badge.category] = [];
-        }
-        badgesByCategory[badge.category].push(badge);
-      });
-      
-      // Sort badges within each category by tier order
-      const tierOrder = ['bronze', 'silver', 'gold', 'platinum', 'diamond'];
-      
-      Object.keys(badgesByCategory).forEach(category => {
-        badgesByCategory[category].sort((a, b) => {
-          const aIndex = tierOrder.indexOf(a.tier);
-          const bIndex = tierOrder.indexOf(b.tier);
-          return aIndex - bIndex;
-        });
-      });
-      
-      // Find the next unearned badge for each category
-      const nextTierBadges: any[] = [];
-      
-      Object.keys(badgesByCategory).forEach(category => {
-        const categoryBadges = badgesByCategory[category];
-        let nextBadge = null;
-        
-        for (const badge of categoryBadges) {
-          if (!earnedBadgeIds.has(badge._id)) {
-            nextBadge = badge;
-            break;
-          }
-        }
-        
-        if (nextBadge) {
-          nextTierBadges.push(nextBadge);
-        }
-      });
-      
-      return nextTierBadges;
-    } catch (error) {
-      console.error('Failed to get next tier badges:', error);
-      return [];
-    }
+    const leveled = await this.getLeveledBadges(userId);
+    return leveled.filter((t) => !t.isComplete && t.nextTier);
   }
 
+  /** @deprecated Use getLeveledBadges instead */
   async getEvolvingBadges(userId: string): Promise<any[]> {
-    try {
-      const allBadges = await this.getAllBadges();
-      const userBadges = await this.getUserBadges(userId);
-      const earnedBadgeIds = new Set(userBadges.map(ub => ub.badge._id));
-      
-      // Group badges by category and tier
-      const badgesByCategory: { [key: string]: any[] } = {};
-      
-      allBadges.forEach(badge => {
-        if (!badgesByCategory[badge.category]) {
-          badgesByCategory[badge.category] = [];
-        }
-        badgesByCategory[badge.category].push(badge);
-      });
-      
-      // Sort badges within each category by tier order
-      const tierOrder = ['bronze', 'silver', 'gold', 'platinum', 'diamond'];
-      
-      Object.keys(badgesByCategory).forEach(category => {
-        badgesByCategory[category].sort((a, b) => {
-          const aIndex = tierOrder.indexOf(a.tier);
-          const bIndex = tierOrder.indexOf(b.tier);
-          return aIndex - bIndex;
-        });
-      });
-      
-      // For each category, find the current evolving badge
-      const evolvingBadges: any[] = [];
-      
-      for (const category of Object.keys(badgesByCategory)) {
-        const categoryBadges = badgesByCategory[category];
-        let currentBadge = null;
-        let highestEarnedTier = -1;
-        
-        // Check each badge in order to find the current evolving badge
-        for (let i = 0; i < categoryBadges.length; i++) {
-          const badge = categoryBadges[i];
-          
-          // Calculate current progress for this badge
-          const progress = await this.calculateEnhancedProgress(userId, badge);
-          
-          if (progress.isEarned) {
-            // User has earned this badge, mark it as the highest earned
-            highestEarnedTier = i;
-          } else {
-            // User hasn't earned this badge yet, this is the current evolving badge
-            currentBadge = badge;
-            break;
-          }
-        }
-        
-        // If all badges in category are earned, show the last one as max tier
-        if (!currentBadge && categoryBadges.length > 0) {
-          currentBadge = categoryBadges[categoryBadges.length - 1];
-          highestEarnedTier = categoryBadges.length - 1;
-        }
-        
-        if (currentBadge) {
-          // Calculate progress for the current evolving badge
-          const progress = await this.calculateEnhancedProgress(userId, currentBadge);
-          
-          // Add evolution metadata
-          const evolutionData = {
-            ...currentBadge,
-            progress: progress, // Include the actual progress data
-            evolution: {
-              currentTier: currentBadge.tier,
-              tierIndex: tierOrder.indexOf(currentBadge.tier),
-              maxTier: tierOrder.length - 1,
-              isMaxTier: tierOrder.indexOf(currentBadge.tier) === tierOrder.length - 1,
-              previousTier: highestEarnedTier >= 0 ? categoryBadges[highestEarnedTier]?.tier : null,
-              nextTier: tierOrder.indexOf(currentBadge.tier) < tierOrder.length - 1 ? tierOrder[tierOrder.indexOf(currentBadge.tier) + 1] : null,
-              progressInCategory: highestEarnedTier + 1,
-              totalInCategory: categoryBadges.length,
-              isEarned: progress.isEarned
-            }
-          };
-          evolvingBadges.push(evolutionData);
-        }
-      }
-      
-      return evolvingBadges;
-    } catch (error) {
-      console.error('Failed to get evolving badges:', error);
-      return [];
-    }
+    return this.getLeveledBadges(userId);
   }
 
-  private async awardEnhancedBadge(userId: string, badge: EnhancedBadge, progress: any, context?: any): Promise<any> {
+  private async createEnhancedBadgeNotification(
+    userId: string,
+    track: EnhancedBadge,
+    tier: BadgeTier,
+  ) {
     try {
-      const userBadge = await client.create({
-        _type: 'userBadge',
-        user: { _ref: userId, _type: 'reference' },
-        badge: { _ref: badge._id, _type: 'reference' },
-        earnedAt: new Date().toISOString(),
-        progress: {
-          current: progress.current,
-          target: progress.target,
-          percentage: progress.percentage
-        },
-        metadata: context ? {
-          context: context.action,
-          relatedContent: context.contentId
-        } : undefined
-      });
-
-      // Update cache
-      const userBadges = this.userBadges.get(userId) || [];
-      userBadges.push(userBadge);
-      this.userBadges.set(userId, userBadges);
-
-      // Create notification for badge earned
-      await this.createEnhancedBadgeNotification(userId, badge);
-
-      return userBadge;
-    } catch (error) {
-      console.error('Failed to award enhanced badge:', error);
-      return null;
-    }
-  }
-
-  private async createEnhancedBadgeNotification(userId: string, badge: EnhancedBadge) {
-    try {
-      await client.create({
+      const tierConfig = track.levels.find((l) => l.tier === tier);
+      await writeClient.create({
         _type: 'notification',
         recipient: { _ref: userId, _type: 'reference' },
         type: 'system',
-        title: `🏆 Badge Earned: ${badge.name}!`,
-        message: `Congratulations! You've earned the ${badge.name} badge: ${badge.description}`,
+        title: `🏆 ${track.name} leveled up to ${tier}!`,
+        message: `Congratulations! You've reached ${tier} on ${track.name}.`,
         timestamp: new Date().toISOString(),
-        isRead: false
+        isRead: false,
+        metadata: tierConfig ? { tier, rarity: tierConfig.rarity } : undefined,
       });
     } catch (error) {
       console.error('Failed to create enhanced badge notification:', error);
@@ -1157,14 +910,16 @@ export class EnhancedBadgeSystem {
   }
 
   async getBadgeProgress(userId: string): Promise<any[]> {
-    const progress: any[] = [];
-    
-    for (const badge of this.badges) {
-      const badgeProgress = await this.calculateEnhancedProgress(userId, badge);
-      progress.push(badgeProgress);
-    }
-
-    return progress;
+    const leveled = await this.getLeveledBadges(userId);
+    return leveled.map((track) => ({
+      badgeId: track._id,
+      current: track.progress.current,
+      target: track.progress.target,
+      percentage: track.progress.percentage,
+      isEarned: track.isComplete,
+      currentTier: track.currentTier,
+      nextTier: track.nextTier,
+    }));
   }
 
   async getUserActivity(userId: string): Promise<any> {

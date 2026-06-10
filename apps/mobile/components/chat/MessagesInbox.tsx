@@ -121,6 +121,17 @@ export function MessagesInbox() {
     );
   }
 
+  if (status === "offline") {
+    return (
+      <View style={screenStyles.center}>
+        <Text style={styles.errorText}>You are offline</Text>
+        <Pressable onPress={retry} style={screenStyles.primaryBtn}>
+          <Text style={screenStyles.primaryBtnText}>Retry</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
   if (status === "loading" || status === "idle") {
     return (
       <View style={screenStyles.center}>
