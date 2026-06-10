@@ -3,7 +3,9 @@ import type { Message } from "@foundrly/shared";
 import { sanitizeStreamUserImage } from "@foundrly/shared";
 import { apiFetch } from "./api-client";
 import { API_URL } from "./config";
+import { formatChatTime } from "./format-chat-time";
 import { urlForImage } from "./sanity";
+import { isImageAttachment } from "./chat-attachments";
 
 export interface SuggestedContact {
   _id: string;
@@ -83,6 +85,18 @@ export function getMessageUserId(msg: LocalMessage): string | undefined {
   return msg.user_id ?? msg.user?.id;
 }
 
+/** True only when Stream recorded a real text edit. */
+export function isMessageEdited(msg: LocalMessage): boolean {
+  if (!msg.message_text_updated_at || !msg.created_at) return false;
+
+  const updated = new Date(msg.message_text_updated_at).getTime();
+  const created = new Date(String(msg.created_at)).getTime();
+  if (Number.isNaN(updated) || Number.isNaN(created)) return false;
+
+  // Stream may set message_text_updated_at equal to created_at on send.
+  return updated - created > 1000;
+}
+
 export function getChannelOtherUser(
   channel: Channel,
   userId: string,
@@ -131,6 +145,72 @@ export function getOtherMemberId(channel: Channel, userId: string): string | nul
   return other?.id ?? null;
 }
 
+type PeerReadState = {
+  last_read?: Date | string;
+  last_read_message_id?: string;
+  unread_messages?: number;
+};
+
+/** Peer read cursor in a 1:1 channel (not the current user's own read state). */
+export function getPeerReadState(
+  channel: Channel,
+  userId: string,
+): PeerReadState | null {
+  const readMap = channel.state.read ?? {};
+  const otherId = getOtherMemberId(channel, userId);
+
+  if (otherId && readMap[otherId]) {
+    return readMap[otherId];
+  }
+
+  for (const [id, state] of Object.entries(readMap)) {
+    if (id !== userId) return state;
+  }
+
+  return null;
+}
+
+export function isMessageSeenByPeer(
+  channel: Channel,
+  msg: LocalMessage,
+  messages: LocalMessage[],
+  userId: string,
+): boolean {
+  const readState = getPeerReadState(channel, userId);
+  const msgIndex = messages.findIndex((m) => m.id === msg.id);
+  if (msgIndex < 0) return false;
+
+  if (readState?.last_read_message_id) {
+    const readIndex = messages.findIndex(
+      (m) => m.id === readState.last_read_message_id,
+    );
+    if (readIndex >= 0 && msgIndex <= readIndex) {
+      return true;
+    }
+  }
+
+  if (readState?.last_read) {
+    const lastReadTime = new Date(String(readState.last_read)).getTime();
+    const msgTime = new Date(String(msg.created_at)).getTime();
+    if (
+      !Number.isNaN(lastReadTime) &&
+      !Number.isNaN(msgTime) &&
+      lastReadTime >= msgTime
+    ) {
+      return true;
+    }
+  }
+
+  // If the peer replied after this outgoing streak, they read it.
+  for (let i = msgIndex + 1; i < messages.length; i++) {
+    const authorId = getMessageUserId(messages[i]);
+    if (authorId === userId) return false;
+    if (authorId && authorId !== userId) return true;
+  }
+
+  return false;
+}
+
 export function dedupeChannelsByMember(
   channels: Channel[],
   userId: string,
@@ -170,6 +250,24 @@ export function dedupeChannelsByMember(
   });
 }
 
+export function getMessagePreview(msg: LocalMessage): string {
+  if (msg.deleted_at || msg.type === "deleted") return "Message deleted";
+
+  if (msg.parent_id) {
+    const text = msg.text?.trim();
+    return text ? `Replied: ${text}` : "Replied to a message";
+  }
+
+  if (msg.attachments?.length) {
+    const first = msg.attachments[0];
+    if (isImageAttachment(first)) return "Photo";
+    if (first.type === "file") return first.title || "File";
+    return "Attachment";
+  }
+
+  return msg.text?.trim() || "No messages yet.";
+}
+
 export function mapChannelToMessage(
   channel: Channel,
   userId: string,
@@ -187,9 +285,9 @@ export function mapChannelToMessage(
   return {
     id: channel.id || "",
     name: cachedProfile?.name ?? other?.name ?? other?.id ?? "Unknown",
-    message: lastMessage ? lastMessage.text || "Attachment" : "No messages yet.",
+    message: lastMessage ? getMessagePreview(lastMessage) : "No messages yet.",
     time: lastMessage
-      ? new Date(String(lastMessage.created_at)).toLocaleDateString()
+      ? formatChatTime(String(lastMessage.created_at))
       : "",
     avatarUrl: resolveDisplayImageUrl(
       cachedProfile?.imageUrl ?? other?.image,
